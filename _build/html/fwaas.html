@@ -1,0 +1,608 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml" xml:lang="ja" lang="ja">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  
+  <title>FWaaS internal &mdash; neutron internal 0 ドキュメント</title>
+  
+    <link rel="stylesheet" href="_static/general.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+  
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    './',
+        VERSION:     '0',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <script type="text/javascript" src="_static/translations.js"></script>
+  <!-- Sticky footer -->
+  <!--[if  IE 8]>
+  <style type="text/css">
+    #wrap {display:table;}
+  </style>
+  <![endif]--> 
+</head>
+<body>
+<div id="wrapper">
+  
+  <!-- header -->
+  <div id="header">
+    <div id="projInfo">
+      <h1 id="title">
+        <a href="index.html">neutron internal</a>
+      </h1>
+      <p class="docdesc">neutron internal 0 ドキュメント</p>
+    </div>
+    <div id="headerNav">
+      <div id="searchbox">
+        <form name="search" action="search.html" method="get">
+          <fieldset class="search">
+            <input type="text" class="hint" name="q" />
+            <button class="button" title="検索" />検索</button>
+            <input type="hidden" name="check_keywords" value="yes" />
+            <input type="hidden" name="area" value="default" />
+          </fieldset>
+        </form>
+      </div>
+    </div>
+    <script type="text/javascript">$('#searchbox').show(0);</script>
+<div id="gnav">
+  <ul>
+    <li class="home"><p><a href="index.html" title="neutron internal">neutron internal</a></p></li>
+    <li class="doc"><p><a href="index.html" title="ドキュメント">ドキュメント</a></p></li>
+    <li class="modindex">
+      <p><a title="索引" href="genindex.html">索引</a></p>
+    </li>
+  </ul>
+</div>
+  </div>
+  <!-- /header -->
+  
+  
+  <!-- content -->
+  <div id="content">
+    <!-- current document area -->
+    <div id="document" class="left">
+  <div class="section" id="fwaas-internal">
+<h1>FWaaS internal<a class="headerlink" href="#fwaas-internal" title="このヘッドラインへのパーマリンク">¶</a></h1>
+<div class="section" id="fwaas">
+<h2>FWaaSの構造<a class="headerlink" href="#fwaas" title="このヘッドラインへのパーマリンク">¶</a></h2>
+<blockquote>
+<div>L3NATAgentにFWaaS関連のモジュール(#1)を組み込むことで実現している。何か特殊なエージェントが別に起動するわけではない。
+(#1) firewall_l3_agent.FWaaSL3AgentRpcCallback</div></blockquote>
+</div>
+<div class="section" id="firewall-l3-agent-fwaasl3agentrpccallback">
+<h2>firewall_l3_agent.FWaaSL3AgentRpcCallback<a class="headerlink" href="#firewall-l3-agent-fwaasl3agentrpccallback" title="このヘッドラインへのパーマリンク">¶</a></h2>
+<p>[ファイル]</p>
+<p>neutron/services/firewall/agents/l3reference/firewall_l3_agent.py</p>
+<blockquote>
+<div><ul>
+<li><dl class="first docutils">
+<dt>__init__</dt>
+<dd><ul class="first last simple">
+<li><strong>説明：各種初期化を行う</strong></li>
+<li>fwaas_plugin_configured and fwaas_enabledがfalseの場合、は異常終了</li>
+<li>fwaas_enabledがtrueの場合、fwaas_driverを読み込み。</li>
+<li>self.services_sync = Falseに設定(何?)</li>
+<li>fwplugin_rcpのセットアップ</li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><p class="first">_get_router_info_list_for_tenant(self, routers, tenant_id)</p>
+<blockquote>
+<div><ul class="simple">
+<li><strong>説明：所有者がtenant_idかつ、自分(l3 agnet)が担当しており、かつ、network namespaceが起動しているrouterをroutersから探してリストで返す</strong></li>
+<li>routersの中から、tenant_idに一致するrouter情報を抽出(router_ids)</li>
+<li>router_idsの中のrouterで、自分(l3 agent)が担当していないrouterはスキップ</li>
+<li>router_idsの中のrouterで、そのrouterのnetwork namespaceが起動している場合は、router_info_listにrouter idを追加</li>
+<li>router_info_listを返却</li>
+</ul>
+</div></blockquote>
+</li>
+<li><p class="first">_invoke_driver_for_plugin_api(self, context, fw, func_name)</p>
+<blockquote>
+<div><ul class="simple">
+<li><strong>説明：self.fwaas_driverのfunc_nameを呼び出す(呼び出す前後で処理がある。func_nameを呼び出す前にrouterのチェック。tenantにrouterが無い場合は、なにもしない。func_nameを呼び出した後、その結果に応じてstatusを変化させる(fwがadmin_state_upの場合、ACTIVE。そう出ない場合はDOWN。fw_ext.FirewallInternalDriverError:の場合はERROR))</strong></li>
+<li>neutron serverからすべてのルータの情報を取得(self.plugin_rpc.get_routers(context))★この処理は大変重くないか？</li>
+<li>_get_router_info_list_for_tenantでrouter絞り込み。結果をrouter_info_listに代入</li>
+<li>もし、router_info_listが[]の場合、かつ、func_nameが&#8221;delete_firewall&#8221;の場合、self.fwplugin_rpc.firewall_deleted(context, fw[&#8216;id&#8217;)]を実行してreturn。もし、router_info_listが[]の場合、かつ、func_nameが&#8221;delete_firewall&#8221;でない場合はreturn</li>
+<li>router_info_listが[]出ない場合、以降を実行</li>
+<li>self.fwaas_driverのfunc_nameを呼び出す(引数：router_info_list,fw)</li>
+<li>もし、fw[&#8220;admin_state_up&#8221;]が真の場合、status = constants.ACTIVE。偽の場合、status = constants.DOWN。fw_ext.FirewallInternalDriverError:が発生した場合は、status = constants.ERROR</li>
+<li>func_name == &#8220;delete_firewall&#8221;の場合、かつ、statusがconstants.ACTIVEまたは、constants.DOWNの場合、self.fwplugin_rpc.firewall_deleted(context, fw[&#8216;id&#8217;])を呼び出す</li>
+<li>func_nameが&#8221;delete_firewall&#8221;でない場合、self.fwplugin_rpc.set_firewall_status(context,fw[&#8216;id&#8217;],status)を実行。</li>
+</ul>
+</div></blockquote>
+</li>
+<li><p class="first">_invoke_driver_for_sync_from_plugin(self, ctx, router_info_list, fw)</p>
+<blockquote>
+<div><ul class="simple">
+<li><strong>説明:fwのstatusに応じてfwaas_driverのメソッドを呼ぶ(PENDING_DELETE -&gt; delete_firewall, それ以外、update_firewall)</strong></li>
+<li>fw[&#8216;status&#8217;] == constants.PENDING_DELETE:の場合、self.fwaas_driver.delete_firewall(router_info_list, fw)を実行し、self.fwplugin_rpc.firewall_deletedを実行する。例外が発生した場合は、self.fwplugin_rpc.set_firewall_status(constants.ERROR)でエラー状態へ遷移する。</li>
+<li>fw[&#8216;status&#8217;] == constants.PENDING_DELETE:以外の場合(PENDING_UPDATE, PENDING_CREATE, ...)、self.fwaas_driver.update_firewall(router_info_list, fw)を実行する。実行後fw[&#8216;admin_state_up&#8217;]:の場合、statusをACTIVEにする。fw[&#8216;admin_state_up&#8217;]:以外の場合、statusをDOWNにする。update_firewallで例外が発生した場合、ERROR状態へ遷移する。</li>
+</ul>
+</div></blockquote>
+</li>
+<li><p class="first">_process_router_add(self, ri):</p>
+<ul class="simple">
+<li><strong>説明：ルータが追加された場合、そのルータ(ri)に対してself._invoke_driver_for_sync_from_pluginを適用する</strong></li>
+<li>routers配列を[]で初期化して、riを追加。</li>
+<li>self._get_router_info_list_for_tenant(routers,ri.router[&#8216;tenant_id&#8217;])を実行(結果をrouter_info_listで受ける)</li>
+<li>router_info_listが空でない場合、self.fwplugin_rpc.get_firewalls_for_tenant(ctx)を実行し、該当テナントのFWリストを得る(fw_listで受ける)。fw_listのそれぞれに対して、self._invoke_driver_for_sync_from_plugin(router_info_list,fw)を実行。</li>
+</ul>
+</li>
+<li><p class="first">process_router_add(self, ri):</p>
+<ul class="simple">
+<li><strong>説明：_process_router_addのラッパ</strong></li>
+<li>self.fwaas_enabledがFalseの場合、return</li>
+<li>self._process_router_add(ri)を実行する。例外が発生した場合、self.services_sync = Trueを実行。</li>
+</ul>
+</li>
+<li><p class="first">process_services_sync(self, ctx):</p>
+<ul class="simple">
+<li><strong>説明：すべてのFWの適用を、FWに対応したルータに対して行う</strong></li>
+<li>self.fwaas_enabledがFalseの場合、return</li>
+<li>self.plugin_rpc.get_routers(ctx)ですべてのrouterを取得(routersで受ける)</li>
+<li>self.fwplugin_rpc.get_tenants_with_firewalls(ctx)でFWを持っているテナントのリストを得る(tenant_idsで受ける)</li>
+<li>tenant_idsのそれぞれのidに対して、以下を実行</li>
+</ul>
+<blockquote>
+<div><ul class="simple">
+<li>self.fwplugin_rpc.get_firewalls_for_tenant(ctx)でtenantが持っているFWのリストを得る(fw_listで受ける)</li>
+<li>fw_listが空でないばあい、以下を実行<ul>
+<li>self._get_router_info_list_for_tenant(routers,tenant_id)を実行し、テナントのrouterを得る(router_info_listで受ける)</li>
+<li>router_info_listが空でない場合、fw_listのそれぞれに対して以下を実行
+- self._invoke_driver_for_sync_from_plugin(ctx,router_info_list,fw)</li>
+</ul>
+</li>
+</ul>
+</div></blockquote>
+</li>
+<li><p class="first">create_firewall(self, context, firewall, host)</p>
+<ul class="simple">
+<li>_invoke_driver_for_plugin_api(context,firewall,&#8217;create_firewall&#8217;)を実行する</li>
+</ul>
+</li>
+<li><p class="first">update_firewall(self, context, firewall, host)</p>
+<ul class="simple">
+<li>_invoke_driver_for_plugin_api(context,firewall,&#8217;update_firewall&#8217;)を実行する</li>
+</ul>
+</li>
+<li><p class="first">delete_firewall(self, context, firewall, host)</p>
+<ul class="simple">
+<li>_invoke_driver_for_plugin_api(context,firewall,&#8217;delete_firewall&#8217;)を実行する</li>
+</ul>
+</li>
+</ul>
+</div></blockquote>
+</div>
+<div class="section" id="class-firewallcallbacks-n-rpc-rpccallback">
+<h2>class FirewallCallbacks(n_rpc.RpcCallback) ★プラグイン側<a class="headerlink" href="#class-firewallcallbacks-n-rpc-rpccallback" title="このヘッドラインへのパーマリンク">¶</a></h2>
+<p>[ファイル]
+neutron/services/firewall/fwaas_plugin.py</p>
+<blockquote>
+<div><ul>
+<li><p class="first">__init__(self, plugin):</p>
+<ul class="simple">
+<li><strong>説明：初期化を実施</strong></li>
+<li>super(FirewallCallbacks, self).__init__()</li>
+<li>self.plugin = plugin</li>
+</ul>
+</li>
+<li><p class="first">set_firewall_status(self, context, firewall_id, status, <a href="#id1"><span class="problematic" id="id2">**</span></a>kwargs):</p>
+<ul class="simple">
+<li><strong>説明：Firewallのstatusを変更する。ただし、PENDING_DELETEの場合は変更しない</strong></li>
+<li>self.plugin._get_firewall(context, firewall_id)でfwを取得する</li>
+<li>fwの状態がPENDING_STATUSの場合はFalseで返る</li>
+<li>statusが(const.ACTIVE, const.INACTIVE, const.DOWN)のいずれかの場合はfwのstatusを更新してTrueで返る</li>
+<li>statusが上記以外であれば、ERRORをfwにセットしてFalseで返る</li>
+</ul>
+</li>
+<li><p class="first">firewall_deleted(self, context, firewall_id, <a href="#id3"><span class="problematic" id="id4">**</span></a>kwargs):</p>
+<ul class="simple">
+<li><strong>説明：firewallをdeleted状態にするために、Agnetが使うRPCメソッド</strong></li>
+<li>self.plugin._get_firewall(context, firewall_id)でfwを取得する</li>
+<li>fwの状態がconst.PENDING_DELETEまたは、const.ERRORの場合
+- DBからfwを削除する
+- Trueで返る</li>
+<li>fwの状態が上記以外の場合
+- fwの状態をERRORにセットする
+- Falseで返る</li>
+</ul>
+</li>
+<li><p class="first">get_firewalls_for_tenant(self, context, <a href="#id5"><span class="problematic" id="id6">**</span></a>kwargs):</p>
+<ul class="simple">
+<li><strong>説明: tenantのfirewallを得る(ルールあり)</strong></li>
+<li>self.plugin.get_firewalls(context)を呼び出し、返ってくる個々のfwに対して、self.plugin._make_firewall_dict_with_rules(context, fw[&#8216;id&#8217;])を呼び出しdictに変換して返す</li>
+</ul>
+</li>
+<li><p class="first">get_firewalls_for_tenant_without_rules(self, context, <a href="#id7"><span class="problematic" id="id8">**</span></a>kwargs):</p>
+<ul class="simple">
+<li><strong>説明：tenantのfirewallを得る(ルールなし)</strong></li>
+<li>self.plugin.get_firewalls(context)を呼び出し、返ってくるものをリスト化して返す</li>
+</ul>
+</li>
+<li><dl class="first docutils">
+<dt>get_tenants_with_firewalls(self, context, <a href="#id9"><span class="problematic" id="id10">**</span></a>kwargs):</dt>
+<dd><ul class="first last simple">
+<li><strong>説明：firewallを所有しているtenantを得る(agentがfirewallを保持するすべてのテナントを得るために使用する)</strong></li>
+<li>neutron_context.get_admin_context()で管理者コンテキストを得る</li>
+<li>self.plugin.get_firewalls(ctx)でfirewallを得る</li>
+<li>tenant_idでフィルタリングしてfwのリストを返す</li>
+</ul>
+</dd>
+</dl>
+</li>
+</ul>
+</div></blockquote>
+</div>
+<div class="section" id="class-firewallagentapi-n-rpc-rpcproxy">
+<h2>class FirewallAgentApi(n_rpc.RpcProxy): ★プラグイン側<a class="headerlink" href="#class-firewallagentapi-n-rpc-rpcproxy" title="このヘッドラインへのパーマリンク">¶</a></h2>
+<p>[ファイル]
+neutron/services/firewall/fwaas_plugin.py</p>
+<p>[概要]
+プラグイン側のagentのRPC APIを呼び出すためのラッパー</p>
+<blockquote>
+<div><ul>
+<li><dl class="first docutils">
+<dt>__init__(self, topic, host):</dt>
+<dd><ul class="first last simple">
+<li><strong>説明：各種初期化を行う</strong></li>
+<li>self.hostにhostを代入する</li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="first docutils">
+<dt>create_firewall(self, context, firewall):</dt>
+<dd><ul class="first last">
+<li><p class="first"><strong>説明：firewallの作成を行う</strong></p>
+</li>
+<li><dl class="first docutils">
+<dt>self.fanout_castを呼び出し、エージェントへ通知する</dt>
+<dd><ul class="first last simple">
+<li>&#8220;create_firewall&#8221;, firewall=firewal, host=self.host</li>
+</ul>
+</dd>
+</dl>
+</li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="first docutils">
+<dt>update_firewall(self, context, firewall):</dt>
+<dd><ul class="first last">
+<li><p class="first"><strong>説明：firewallの更新を行う</strong></p>
+</li>
+<li><dl class="first docutils">
+<dt>self.fanout_castを呼び出し、エージェントへ通知する</dt>
+<dd><ul class="first last simple">
+<li>&#8220;update_firewall&#8221;, firewall=firewal, host=self.host</li>
+</ul>
+</dd>
+</dl>
+</li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="first docutils">
+<dt>delete_firewall(self, context, firewall):</dt>
+<dd><ul class="first last">
+<li><p class="first"><strong>説明：firewallの削除を行う</strong></p>
+</li>
+<li><dl class="first docutils">
+<dt>self.fanout_castを呼び出し、エージェントへ通知する</dt>
+<dd><ul class="first last simple">
+<li>&#8220;delete_firewall&#8221;, firewall=firewal, host=self.host</li>
+</ul>
+</dd>
+</dl>
+</li>
+</ul>
+</dd>
+</dl>
+</li>
+</ul>
+</div></blockquote>
+</div>
+<div class="section" id="class-firewallcountexceeded-n-exception-conflict">
+<h2>class FirewallCountExceeded(n_exception.Conflict): ★プラグイン側<a class="headerlink" href="#class-firewallcountexceeded-n-exception-conflict" title="このヘッドラインへのパーマリンク">¶</a></h2>
+<p>[ファイル]
+neutron/services/firewall/fwaas_plugin.py</p>
+<p>[概要]
+Firewallの個数が超過したときに発生する例外</p>
+</div>
+<div class="section" id="class-firewallplugin-firewall-db-firewall-db-mixin">
+<h2>class FirewallPlugin(firewall_db.Firewall_db_mixin): ★プラグイン側<a class="headerlink" href="#class-firewallplugin-firewall-db-firewall-db-mixin" title="このヘッドラインへのパーマリンク">¶</a></h2>
+<p>[ファイル]
+neutron/services/firewall/fwaas_plugin.py</p>
+<p>[概要]
+Neutron Firewall Service Pluginの実装。FWaaS request/responseのワークフローを管理する。DB関連の仕事のほとんどはfirewall_db.Firewall_db_mixinで実装されている。</p>
+<blockquote>
+<div><ul>
+<li><dl class="first docutils">
+<dt>__init__(self, topic, host):</dt>
+<dd><ul class="first last simple">
+<li><strong>説明：各種初期化を行う(以下、各処理は要調査)</strong></li>
+<li>qdbapi.register_models()でモデルの登録を行う</li>
+<li>self.endpoints = [FirewallCallbacks(self)]でエンドポイントをFirewallCallbacksに設定</li>
+<li>self.conn = n_rpc.create_connection(new=True)でAMQPサーバに接続する</li>
+<li>AMQPにconsumerの設定を行う(topics=q-firewall-plugin,FirewallCallbacks,fanout=False)</li>
+<li>agent_rpcの初期化を行う(FierwallAgentApi)</li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="first docutils">
+<dt>_make_firewall_dict_with_rules(self, context, firewall_id):</dt>
+<dd><ul class="first last">
+<li><p class="first"><strong>説明:rule付きのFirewallの情報を返す</strong></p>
+</li>
+<li><p class="first">firewall_idでfirewallをDBから検索する</p>
+</li>
+<li><p class="first">検索結果からfirewall_policy_idを得る</p>
+</li>
+<li><dl class="first docutils">
+<dt>firewall_policy_idがある場合</dt>
+<dd><ul class="first last simple">
+<li>fw_policy_idでfireall_policyをDBから検索する</li>
+<li>fw_policyの個々のfirewall_rulesについてrule_idでDBからFirewallRuleを検索する</li>
+<li>firewall[&#8216;firewall_rule_list&#8217;]に結果を代入する</li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><p class="first">firewall_policy_idが存在しない場合、firewall[&#8216;firewall_rule_list&#8217;]に[]を代入する</p>
+</li>
+<li><p class="first">結果(firewall)を返却する</p>
+</li>
+<li><p class="first">[メモ]このメソッドで作成されたfirewallオブジェクトのサイズが、rabbit/qpidがサポートするサイズを越えた場合、問題が発生する！！！</p>
+</li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="first docutils">
+<dt>_rpc_update_firewall(self, context, firewall_id):</dt>
+<dd><ul class="first last simple">
+<li><strong>説明：DBのFirewallの状態をupdateしたあとで、agentにupdateを通知する</strong></li>
+<li>super(FirewallPlugin, self).update_firewallでfirewallの状態をPENDING_UPDATE状態に変更する</li>
+<li>self._make_firewall_dict_with_rulesでfirewallの情報を得る。</li>
+<li>self.agent_rpc.update_firewall(context, fw_with_rules)でagentにupdateの通知を行う</li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="first docutils">
+<dt>_rpc_update_firewall_policy(self, context, firewall_policy_id):</dt>
+<dd><ul class="first last simple">
+<li><strong>説明：firewall_policy_idに関連付くfireweallの状態をPENDING_UPDATE状態に変更する</strong></li>
+<li>firewall_policyのfirewall_listの各firewallについて、self._rpc_update_firewall(context, firewall_id)を実行する</li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="first docutils">
+<dt>_ensure_update_firewall(self, context, firewall_id):</dt>
+<dd><ul class="first last simple">
+<li><strong>説明：firewallの状態がPENDING_CREATE or PENDING_UPDATE or PENDING_DELETEの場合はFirewallInPendingState例外を発生する</strong></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="first docutils">
+<dt>_ensure_update_firewall_policy(self, context, firewall_policy_id):</dt>
+<dd><ul class="first last">
+<li><p class="first"><strong>説明：firewall_policyに関連づくfirewallの状態をPENDING_UPDATE状態に設定する</strong></p>
+</li>
+<li><p class="first">firewall_policy_idをキーとしてDBからfirewall_policyを検索する</p>
+</li>
+<li><dl class="first docutils">
+<dt>policyが存在し、かつ、firewall_policyにfirewall_listが存在する場合は以下を実行</dt>
+<dd><ul class="first last simple">
+<li>各firewallについて、self._ensure_update_firewall(context, firewall_id)を実行する</li>
+</ul>
+</dd>
+</dl>
+</li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="first docutils">
+<dt>_ensure_update_firewall_rule(self, context, firewall_rule_id):</dt>
+<dd><ul class="first last simple">
+<li><strong>説明：firewall_ruleに関連づくfiewallの状態をupdateする</strong></li>
+<li>firewall_rule_idをキーとしてDBからfirewall_ruleを検索する</li>
+<li>fw_ruleが存在し、かつ、fw_ruleにfirewall_policy_idが存在する場合、self._ensure_update_firewall_policyを実行し、firewallの状態をPENDING_UPDATE状態に設定する</li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="first docutils">
+<dt>create_firewall(self, context, firewall):</dt>
+<dd><ul class="first last simple">
+<li><strong>説明：firewallの作成を行う</strong></li>
+<li>self._get_tenant_id_for_createでfirewallのtenant_idを得る。</li>
+<li>self.get_firewalls_countでfirewallの個数を得る</li>
+<li>fw_countがある場合、FirewallCountExceeded(tenant_id=tenant_id)例外をraiseする</li>
+<li>firewallの状態をPENDING_CREATE状態に設定する</li>
+<li>super(FirewallPlugin, self).create_firewall(context, firewall)を実行する(firewall_db.Firewall_db_mixin)</li>
+<li>self._make_firewall_dict_with_rules(context, fw[&#8216;id&#8217;]))を実行してrule付きのfw情報を作る</li>
+<li>self.agent_rpc.create_firewall(context, fw_with_rules)でfirewallがcreateされたことをagentに通知する</li>
+<li>fw情報を返す</li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="first docutils">
+<dt>update_firewall(self, context, id, firewall):</dt>
+<dd><ul class="first last simple">
+<li><strong>説明：firewallの状態を更新する</strong></li>
+<li>self._ensure_update_firewall(context, id)でfirewallの状態をチェックする</li>
+<li>firewallの状態をPENDING_UPDATEに設定する</li>
+<li>fw = super(FirewallPlugin, self).update_firewall(context, id, firewall)を実行する(firewall_db.Firewall_db_mixin)</li>
+<li>self._make_firewall_dict_with_rules(context, fw[&#8216;id&#8217;]))を実行してrule付きのfw情報を得る</li>
+<li>self.agent_rpc.update_firewall(context, fw_with_rules)でagnetに状態の更新を通知する</li>
+<li>fwを返す</li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="first docutils">
+<dt>delete_firewall(self, context, id):</dt>
+<dd><ul class="first last simple">
+<li><strong>説明：firewallを削除する</strong></li>
+<li>fw = super(FirewallPlugin, self).update_firewallでfirewallの状態をPENDING_DELETEに設定する</li>
+<li>self._make_firewall_dict_with_rules(context, fw[&#8216;id&#8217;]))でrule付きのfirewallの情報を作成する</li>
+<li>self.agent_rpc.delete_firewall(context, fw_with_rules)でagentに状態の更新を通知する</li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="first docutils">
+<dt>update_firewall_policy(self, context, id, firewall_policy):</dt>
+<dd><ul class="first last simple">
+<li><strong>説明：firewall policyを更新する</strong></li>
+<li>self._ensure_update_firewall_policy(context, id)で状態をチェックする</li>
+<li>fwp = super(FirewallPlugin,self).update_firewall_policy(context, id, firewall_policy)を実行する</li>
+<li>self._rpc_update_firewall_policy(context, id)でagentに状態の更新を通知する</li>
+<li>firewall ruleを返す</li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="first docutils">
+<dt>update_firewall_rule(self, context, id, firewall_rule):</dt>
+<dd><ul class="first last simple">
+<li><strong>説明：firewall ruleを更新する</strong></li>
+<li>self._ensure_update_firewall_rule(context, id)で状態をチェックする</li>
+<li>fwr = super(FirewallPlugin,self).update_firewall_rule(context, id, firewall_rule)を実行する</li>
+<li>self._rpc_update_firewall_policy(context, firewall_policy_id)でagentに通知する</li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="first docutils">
+<dt>insert_rule(self, context, id, rule_info):</dt>
+<dd><ul class="first last simple">
+<li><strong>説明：ruleをinsertする</strong></li>
+<li>self._ensure_update_firewall_policy(context, id)で状態をチェックする</li>
+<li>fwp = super(FirewallPlugin,self).insert_rule(context, id, rule_info)を実行する</li>
+<li>self._rpc_update_firewall_policy(context, id)でagnetに通知する</li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="first docutils">
+<dt>remove_rule(self, context, id, rule_info):</dt>
+<dd><ul class="first last simple">
+<li><strong>説明：ruleをremoveする</strong></li>
+<li>self._ensure_update_firewall_policy(context, id)で状態をチェックする</li>
+<li>fwp = super(FirewallPlugin,self).remove_rule(context, id, rule_info)を実行する</li>
+<li>self._rpc_update_firewall_policy(context, id)を実行してagentに通知する</li>
+</ul>
+</dd>
+</dl>
+</li>
+</ul>
+</div></blockquote>
+</div>
+<div class="section" id="firewall-db-firewall-db-mixin">
+<h2>firewall_db.Firewall_db_mixin: ★プラグイン側<a class="headerlink" href="#firewall-db-firewall-db-mixin" title="このヘッドラインへのパーマリンク">¶</a></h2>
+</div>
+</div>
+
+
+    </div>
+    <!-- /current document area -->
+    <!-- sidebar -->
+    
+  <div id="sidebar" class="left">
+    <div id="sidebarWrap">
+  <div id="toc" class="sidebarRow">
+  <h3><a href="index.html">目次</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">FWaaS internal</a><ul>
+<li><a class="reference internal" href="#fwaas">FWaaSの構造</a></li>
+<li><a class="reference internal" href="#firewall-l3-agent-fwaasl3agentrpccallback">firewall_l3_agent.FWaaSL3AgentRpcCallback</a></li>
+<li><a class="reference internal" href="#class-firewallcallbacks-n-rpc-rpccallback">class FirewallCallbacks(n_rpc.RpcCallback) ★プラグイン側</a></li>
+<li><a class="reference internal" href="#class-firewallagentapi-n-rpc-rpcproxy">class FirewallAgentApi(n_rpc.RpcProxy): ★プラグイン側</a></li>
+<li><a class="reference internal" href="#class-firewallcountexceeded-n-exception-conflict">class FirewallCountExceeded(n_exception.Conflict): ★プラグイン側</a></li>
+<li><a class="reference internal" href="#class-firewallplugin-firewall-db-firewall-db-mixin">class FirewallPlugin(firewall_db.Firewall_db_mixin): ★プラグイン側</a></li>
+<li><a class="reference internal" href="#firewall-db-firewall-db-mixin">firewall_db.Firewall_db_mixin: ★プラグイン側</a></li>
+</ul>
+</li>
+</ul>
+
+  </div>
+<div id="rel" class="sidebarRow">
+  <div class="relRow prev">
+  <h4>前のトピックへ</h4>
+  <p class="topless"><a href="index.html"
+                        title="前の章へ">Welcome to neutron internal&#8217;s documentation!</a></p>
+  </div>
+</div>
+  <div id="source" class="sidebarRow">
+  <h3>このページ</h3>
+  <ul class="this-page-menu">
+    <li><a href="_sources/fwaas.txt"
+           rel="nofollow">ソースコードを表示</a></li>
+  </ul>
+  </div>
+<div id="searchbox" style="display: none">
+  <h3>クイック検索</h3>
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="検索" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    モジュール、クラス、または関数名を入力してください
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+    </div>
+  </div>
+    <!-- /sidebar -->
+  </div>
+  
+  <!-- /content -->
+</div>
+  <!-- footer -->
+  
+  <div id="footer">
+    <div class="footerCol">
+      <h1><a href="index.html">neutron internal</a></h1>
+      <p class="copy">
+      &copy; Copyright 2014, kazuhiro MIYASHITA.
+      </p>
+      <p class="sp">
+      このドキュメントは <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.2.2 で生成しました。
+      </p>
+    </div>
+    <div class="footerCol">
+    
+  <div class="relbar">
+    <dl id="relPrev">
+      <dt class="prev">前のトピックへ</dt>
+      <dd class="relTitle"><a href="index.html" title="前の章へ" accesskey="N">Welcome to neutron internal&#8217;s documentation!</a></dd>
+    </dl>
+  </div>
+    </div>
+  </div>
+ 
+ <!-- /footer -->
+</body>
+</html>
