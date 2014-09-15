@@ -371,3 +371,22 @@ firewall pluginのDB関連の処理を行うmixin
   
   - _get_port_range_from_min_max_ports(self, min_port, max_port):
       - **説明：[min,max]からport_range"min:max"にして返す**
+
+  - _validate_fwr_protocol_parameters(self, fwr):
+      - **説明：protocol parameterのを行い、不正な場合はfirewall.FirewallRuleInvalidICMPParameterをraiseする**
+      - fwr['protocol']がconst.TCPでない、かつ、const.UDPでない
+          + fwr['source_port'] または、fwr['destination_port']が設定されている場合、firewall.FirewallRuleInvalidICMPParameterをraise
+
+  -  create_firewall(self, context, firewall):
+      - self._get_tenant_id_for_create(context, fw)でテナントIDを取得する
+      - Firewallレコードを作成する
+          + firewall_db = Firewall(id=uuidutils.generate_uuid(),
+                                   tenant_id=tenant_id,
+                                   name=fw['name'],
+                                   description=fw['description'],
+                                   firewall_policy_id=
+                                   fw['firewall_policy_id'],
+                                   admin_state_up=fw['admin_state_up'],
+                                   status=const.PENDING_CREATE)
+
+      - self._make_firewall_dict(firewall_db)の実行結果を返す
