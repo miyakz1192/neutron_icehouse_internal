@@ -88,6 +88,12 @@ neutron/services/firewall/agents/l3reference/firewall_l3_agent.py
 
     - _invoke_driver_for_plugin_api(context,firewall,'delete_firewall')を実行する
 
+FWaaS driver処理 ★エージェント側
+--------------------------------
+
+(未稿)
+
+
 class FirewallCallbacks(n_rpc.RpcCallback) ★プラグイン側
 --------------------------------------------------------
 [ファイル]
@@ -354,3 +360,68 @@ firewall pluginのDB関連の処理を行うmixin
       - fwp_db.firewall_rules.reorder()
       - fwp_db.audited = False
  
+  - _process_rule_for_policy(self, context, firewall_policy_id, firewall_rule_db, position):
+      - **説明：firewall_policyからfirewall_ruleをinstertまたはremoveする**
+      - fwp_queryを取得する
+      - firewall_policy_idをキーとしてDBを検索し、先頭を得る
+      - positionが真の場合
+          + fwp_db.firewall_rules.insert(position - 1, firewall_rule_db)
+      - positionが偽の場合
+          + fwp_db.firewall_rules.remove(firewall_rule_db)
+      - fwp_dbをリオーダーする(fwp_db.firewall_rules.reorder())
+      - auditedをFalse(fwp_db.audited = False)
+      - fwp_dbをdictにして返す(return self._make_firewall_policy_dict(fwp_db))
+
+  - _get_min_max_ports_from_range(self, port_range):
+      - **説明：port_rangeを[min,max]にして返す**
+  
+  - _get_port_range_from_min_max_ports(self, min_port, max_port):
+      - **説明：[min,max]からport_range"min:max"にして返す**
+
+  - _validate_fwr_protocol_parameters(self, fwr):
+      - **説明：protocol parameterのを行い、不正な場合はfirewall.FirewallRuleInvalidICMPParameterをraiseする**
+      - fwr['protocol']がconst.TCPでない、かつ、const.UDPでない
+          + fwr['source_port'] または、fwr['destination_port']が設定されている場合、firewall.FirewallRuleInvalidICMPParameterをraise
+
+  -  create_firewall(self, context, firewall):
+      - **説明：firewallの作成を行う**
+      - self._get_tenant_id_for_create(context, fw)でテナントIDを取得する
+      - Firewallレコードを作成する
+          + firewall_db = Firewall(id=uuidutils.generate_uuid(),
+              +                    tenant_id=tenant_id,
+              +                    name=fw['name'],
+              +                    description=fw['description'],
+              +                    firewall_policy_id=
+              +                    fw['firewall_policy_id'],
+              +                    admin_state_up=fw['admin_state_up'],
+              +                    status=const.PENDING_CREATE)
+          + ★idは指定できない！！！
+
+      - self._make_firewall_dict(firewall_db)の実行結果を返す
+
+  -  update_firewall(self, context, id, firewall):
+      - **説明：firewallのを更新を行う**
+      - firewall情報をidをキーとして検索する
+      - firewallをupdateする
+      - self._make_firewall_dict(firewall_db)の実行結果を返す
+
+  -  delete_firewall(self, context, id):
+      - **説明：firewallの削除を行う**
+      - firewall情報をidをキーとして検索する
+      - firewallをdeleteする
+
+  -  get_firewall(self, context, id, fields=None):
+      - **説明：firewallの情報を返す**
+      - firewall情報をidをキーとして検索する
+      - return self._make_firewall_dict(fw, fields)
+
+  -  get_firewalls(self, context, filters=None, fields=None):
+      - **説明：firewallの情報を返す**
+      - return self._get_collection(context, Firewall,
+          +                         self._make_firewall_dict,
+          +                         filters=filters, fields=fields)
+
+  -  get_firewalls_count(self, context, filters=None):
+      - **説明：firewallの個数を返す**
+      - return self._get_collection_count(context, Firewall,filters=filters)
+

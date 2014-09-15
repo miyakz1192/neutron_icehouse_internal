@@ -184,6 +184,10 @@
 </ul>
 </div></blockquote>
 </div>
+<div class="section" id="fwaas-driver">
+<h2>FWaaS driver処理 ★エージェント側<a class="headerlink" href="#fwaas-driver" title="このヘッドラインへのパーマリンク">¶</a></h2>
+<p>(未稿)</p>
+</div>
 <div class="section" id="class-firewallcallbacks-n-rpc-rpccallback">
 <h2>class FirewallCallbacks(n_rpc.RpcCallback) ★プラグイン側<a class="headerlink" href="#class-firewallcallbacks-n-rpc-rpccallback" title="このヘッドラインへのパーマリンク">¶</a></h2>
 <p>[ファイル]
@@ -669,6 +673,168 @@ firewall pluginのDB関連の処理を行うmixin</p>
 </dd>
 </dl>
 </li>
+<li><dl class="first docutils">
+<dt>_process_rule_for_policy(self, context, firewall_policy_id, firewall_rule_db, position):</dt>
+<dd><ul class="first last">
+<li><p class="first"><strong>説明：firewall_policyからfirewall_ruleをinstertまたはremoveする</strong></p>
+</li>
+<li><p class="first">fwp_queryを取得する</p>
+</li>
+<li><p class="first">firewall_policy_idをキーとしてDBを検索し、先頭を得る</p>
+</li>
+<li><dl class="first docutils">
+<dt>positionが真の場合</dt>
+<dd><ul class="first last simple">
+<li>fwp_db.firewall_rules.insert(position - 1, firewall_rule_db)</li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="first docutils">
+<dt>positionが偽の場合</dt>
+<dd><ul class="first last simple">
+<li>fwp_db.firewall_rules.remove(firewall_rule_db)</li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><p class="first">fwp_dbをリオーダーする(fwp_db.firewall_rules.reorder())</p>
+</li>
+<li><p class="first">auditedをFalse(fwp_db.audited = False)</p>
+</li>
+<li><p class="first">fwp_dbをdictにして返す(return self._make_firewall_policy_dict(fwp_db))</p>
+</li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="first docutils">
+<dt>_get_min_max_ports_from_range(self, port_range):</dt>
+<dd><ul class="first last simple">
+<li><strong>説明：port_rangeを[min,max]にして返す</strong></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="first docutils">
+<dt>_get_port_range_from_min_max_ports(self, min_port, max_port):</dt>
+<dd><ul class="first last simple">
+<li><strong>説明：[min,max]からport_range&#8221;min:max&#8221;にして返す</strong></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="first docutils">
+<dt>_validate_fwr_protocol_parameters(self, fwr):</dt>
+<dd><ul class="first last">
+<li><p class="first"><strong>説明：protocol parameterのを行い、不正な場合はfirewall.FirewallRuleInvalidICMPParameterをraiseする</strong></p>
+</li>
+<li><dl class="first docutils">
+<dt>fwr[&#8216;protocol&#8217;]がconst.TCPでない、かつ、const.UDPでない</dt>
+<dd><ul class="first last simple">
+<li>fwr[&#8216;source_port&#8217;] または、fwr[&#8216;destination_port&#8217;]が設定されている場合、firewall.FirewallRuleInvalidICMPParameterをraise</li>
+</ul>
+</dd>
+</dl>
+</li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="first docutils">
+<dt>create_firewall(self, context, firewall):</dt>
+<dd><ul class="first last">
+<li><p class="first"><strong>説明：firewallの作成を行う</strong></p>
+</li>
+<li><p class="first">self._get_tenant_id_for_create(context, fw)でテナントIDを取得する</p>
+</li>
+<li><dl class="first docutils">
+<dt>Firewallレコードを作成する</dt>
+<dd><ul class="first last">
+<li><dl class="first docutils">
+<dt>firewall_db = Firewall(id=uuidutils.generate_uuid(),</dt>
+<dd><ul class="first last simple">
+<li>tenant_id=tenant_id,</li>
+<li>name=fw[&#8216;name&#8217;],</li>
+<li>description=fw[&#8216;description&#8217;],</li>
+<li>firewall_policy_id=</li>
+<li>fw[&#8216;firewall_policy_id&#8217;],</li>
+<li>admin_state_up=fw[&#8216;admin_state_up&#8217;],</li>
+<li>status=const.PENDING_CREATE)</li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><p class="first">★idは指定できない！！！</p>
+</li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><p class="first">self._make_firewall_dict(firewall_db)の実行結果を返す</p>
+</li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="first docutils">
+<dt>update_firewall(self, context, id, firewall):</dt>
+<dd><ul class="first last simple">
+<li><strong>説明：firewallのを更新を行う</strong></li>
+<li>firewall情報をidをキーとして検索する</li>
+<li>firewallをupdateする</li>
+<li>self._make_firewall_dict(firewall_db)の実行結果を返す</li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="first docutils">
+<dt>delete_firewall(self, context, id):</dt>
+<dd><ul class="first last simple">
+<li><strong>説明：firewallの削除を行う</strong></li>
+<li>firewall情報をidをキーとして検索する</li>
+<li>firewallをdeleteする</li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="first docutils">
+<dt>get_firewall(self, context, id, fields=None):</dt>
+<dd><ul class="first last simple">
+<li><strong>説明：firewallの情報を返す</strong></li>
+<li>firewall情報をidをキーとして検索する</li>
+<li>return self._make_firewall_dict(fw, fields)</li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="first docutils">
+<dt>get_firewalls(self, context, filters=None, fields=None):</dt>
+<dd><ul class="first last">
+<li><p class="first"><strong>説明：firewallの情報を返す</strong></p>
+</li>
+<li><dl class="first docutils">
+<dt>return self._get_collection(context, Firewall,</dt>
+<dd><ul class="first last simple">
+<li>self._make_firewall_dict,</li>
+<li>filters=filters, fields=fields)</li>
+</ul>
+</dd>
+</dl>
+</li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="first docutils">
+<dt>get_firewalls_count(self, context, filters=None):</dt>
+<dd><ul class="first last simple">
+<li><strong>説明：firewallの個数を返す</strong></li>
+<li>return self._get_collection_count(context, Firewall,filters=filters)</li>
+</ul>
+</dd>
+</dl>
+</li>
 </ul>
 </div></blockquote>
 </div>
@@ -687,6 +853,7 @@ firewall pluginのDB関連の処理を行うmixin</p>
 <li><a class="reference internal" href="#">FWaaS internal</a><ul>
 <li><a class="reference internal" href="#fwaas">FWaaSの構造</a></li>
 <li><a class="reference internal" href="#firewall-l3-agent-fwaasl3agentrpccallback">firewall_l3_agent.FWaaSL3AgentRpcCallback ★エージェント側</a></li>
+<li><a class="reference internal" href="#fwaas-driver">FWaaS driver処理 ★エージェント側</a></li>
 <li><a class="reference internal" href="#class-firewallcallbacks-n-rpc-rpccallback">class FirewallCallbacks(n_rpc.RpcCallback) ★プラグイン側</a></li>
 <li><a class="reference internal" href="#class-firewallagentapi-n-rpc-rpcproxy">class FirewallAgentApi(n_rpc.RpcProxy): ★プラグイン側</a></li>
 <li><a class="reference internal" href="#class-firewallcountexceeded-n-exception-conflict">class FirewallCountExceeded(n_exception.Conflict): ★プラグイン側</a></li>

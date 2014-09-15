@@ -88,6 +88,12 @@ neutron/services/firewall/agents/l3reference/firewall_l3_agent.py
 
     - _invoke_driver_for_plugin_api(context,firewall,'delete_firewall')を実行する
 
+FWaaS driver処理 ★エージェント側
+--------------------------------
+
+(未稿)
+
+
 class FirewallCallbacks(n_rpc.RpcCallback) ★プラグイン側
 --------------------------------------------------------
 [ファイル]
@@ -378,15 +384,44 @@ firewall pluginのDB関連の処理を行うmixin
           + fwr['source_port'] または、fwr['destination_port']が設定されている場合、firewall.FirewallRuleInvalidICMPParameterをraise
 
   -  create_firewall(self, context, firewall):
+      - **説明：firewallの作成を行う**
       - self._get_tenant_id_for_create(context, fw)でテナントIDを取得する
       - Firewallレコードを作成する
           + firewall_db = Firewall(id=uuidutils.generate_uuid(),
-                                   tenant_id=tenant_id,
-                                   name=fw['name'],
-                                   description=fw['description'],
-                                   firewall_policy_id=
-                                   fw['firewall_policy_id'],
-                                   admin_state_up=fw['admin_state_up'],
-                                   status=const.PENDING_CREATE)
+              +                    tenant_id=tenant_id,
+              +                    name=fw['name'],
+              +                    description=fw['description'],
+              +                    firewall_policy_id=
+              +                    fw['firewall_policy_id'],
+              +                    admin_state_up=fw['admin_state_up'],
+              +                    status=const.PENDING_CREATE)
+          + ★idは指定できない！！！
 
       - self._make_firewall_dict(firewall_db)の実行結果を返す
+
+  -  update_firewall(self, context, id, firewall):
+      - **説明：firewallのを更新を行う**
+      - firewall情報をidをキーとして検索する
+      - firewallをupdateする
+      - self._make_firewall_dict(firewall_db)の実行結果を返す
+
+  -  delete_firewall(self, context, id):
+      - **説明：firewallの削除を行う**
+      - firewall情報をidをキーとして検索する
+      - firewallをdeleteする
+
+  -  get_firewall(self, context, id, fields=None):
+      - **説明：firewallの情報を返す**
+      - firewall情報をidをキーとして検索する
+      - return self._make_firewall_dict(fw, fields)
+
+  -  get_firewalls(self, context, filters=None, fields=None):
+      - **説明：firewallの情報を返す**
+      - return self._get_collection(context, Firewall,
+          +                         self._make_firewall_dict,
+          +                         filters=filters, fields=fields)
+
+  -  get_firewalls_count(self, context, filters=None):
+      - **説明：firewallの個数を返す**
+      - return self._get_collection_count(context, Firewall,filters=filters)
+
