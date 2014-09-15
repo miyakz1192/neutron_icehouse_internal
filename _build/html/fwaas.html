@@ -79,7 +79,7 @@
 (#1) firewall_l3_agent.FWaaSL3AgentRpcCallback</div></blockquote>
 </div>
 <div class="section" id="firewall-l3-agent-fwaasl3agentrpccallback">
-<h2>firewall_l3_agent.FWaaSL3AgentRpcCallback<a class="headerlink" href="#firewall-l3-agent-fwaasl3agentrpccallback" title="このヘッドラインへのパーマリンク">¶</a></h2>
+<h2>firewall_l3_agent.FWaaSL3AgentRpcCallback ★エージェント側<a class="headerlink" href="#firewall-l3-agent-fwaasl3agentrpccallback" title="このヘッドラインへのパーマリンク">¶</a></h2>
 <p>[ファイル]</p>
 <p>neutron/services/firewall/agents/l3reference/firewall_l3_agent.py</p>
 <blockquote>
@@ -188,6 +188,8 @@
 <h2>class FirewallCallbacks(n_rpc.RpcCallback) ★プラグイン側<a class="headerlink" href="#class-firewallcallbacks-n-rpc-rpccallback" title="このヘッドラインへのパーマリンク">¶</a></h2>
 <p>[ファイル]
 neutron/services/firewall/fwaas_plugin.py</p>
+<p>[概要]
+AMQPのイベントごとに実行されるコールバックの定義</p>
 <blockquote>
 <div><ul>
 <li><p class="first">__init__(self, plugin):</p>
@@ -518,8 +520,157 @@ Neutron Firewall Service Pluginの実装。FWaaS request/responseのワークフ
 </ul>
 </div></blockquote>
 </div>
+<div class="section" id="db">
+<h2>DBレコード構造★<a class="headerlink" href="#db" title="このヘッドラインへのパーマリンク">¶</a></h2>
+<p>[ファイル]
+neutron/db/firewall/firewall_db.py</p>
+<ul>
+<li><dl class="first docutils">
+<dt>class FirewallRule(model_base.BASEV2, models_v2.HasId, models_v2.HasTenant)</dt>
+<dd><ul class="first last simple">
+<li>PK:ID</li>
+<li>FK:firewall_policies.id</li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="first docutils">
+<dt>class Firewall(model_base.BASEV2, models_v2.HasId, models_v2.HasTenant):</dt>
+<dd><ul class="first last simple">
+<li>PK:ID</li>
+<li>FK:firewall_policies.id</li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="first docutils">
+<dt>class FirewallPolicy(model_base.BASEV2, models_v2.HasId, models_v2.HasTenant):</dt>
+<dd><ul class="first last">
+<li><p class="first">PK:ID</p>
+</li>
+<li><dl class="first docutils">
+<dt>firewall_rules = orm.relationship(</dt>
+<dd><p class="first last">FirewallRule,
+backref=orm.backref(&#8216;firewall_policies&#8217;, cascade=&#8217;all, delete&#8217;),
+order_by=&#8217;FirewallRule.position&#8217;,
+collection_class=ordering_list(&#8216;position&#8217;, count_from=1))</p>
+</dd>
+</dl>
+</li>
+</ul>
+</dd>
+</dl>
+</li>
+</ul>
+</div>
 <div class="section" id="firewall-db-firewall-db-mixin">
 <h2>firewall_db.Firewall_db_mixin: ★プラグイン側<a class="headerlink" href="#firewall-db-firewall-db-mixin" title="このヘッドラインへのパーマリンク">¶</a></h2>
+<p>[ファイル]
+neutron/db/firewall/firewall_db.py</p>
+<p>[概要]
+firewall pluginのDB関連の処理を行うmixin</p>
+<blockquote>
+<div><ul>
+<li><dl class="first docutils">
+<dt>_core_plugin(self):</dt>
+<dd><ul class="first last simple">
+<li><strong>説明：プラグインを返す</strong></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="first docutils">
+<dt>_get_firewall(self, context, id):</dt>
+<dd><ul class="first last simple">
+<li><strong>説明：firewallをidをキーとして検索する</strong></li>
+<li>self._get_by_id(context, Firewall, id)でレコードを検索する</li>
+<li>※例外をキャッチして、NoResultFountの場合はfirewall.FirewallNotFound(firewall_id=id)をraiseする</li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="first docutils">
+<dt>_get_firewall_policy(self, context, id):</dt>
+<dd><ul class="first last simple">
+<li><strong>説明：firewall policyを返す</strong></li>
+<li>return self._get_by_id(context, FirewallPolicy, id)</li>
+<li>※例外をキャッチして、NoResultFountの場合はfirewall.FirewallPolicyNotFound(firewall_policy_id=id)をraiseする</li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="first docutils">
+<dt>_get_firewall_rule(self, context, id):</dt>
+<dd><ul class="first last simple">
+<li><strong>説明：firewall ruleを返す</strong></li>
+<li>return self._get_by_id(context, FirewallRule, id)</li>
+<li>※例外をキャッチして、NoResultFountの場合はfirewall.FirewallRuleNotFound(firewall_rule_id=id)をraiseする</li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="first docutils">
+<dt>_make_firewall_dict(self, fw, fields=None):</dt>
+<dd><ul class="first last simple">
+<li><strong>説明：firewall情報をdictにして返す</strong></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="first docutils">
+<dt>_make_firewall_policy_dict(self, firewall_policy, fields=None):</dt>
+<dd><ul class="first last simple">
+<li><strong>説明：firewall policy情報をdictにして返す</strong></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="first docutils">
+<dt>_make_firewall_rule_dict(self, firewall_rule, fields=None):</dt>
+<dd><ul class="first last simple">
+<li><strong>説明：firewall rule情報をdictにして返す</strong></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="first docutils">
+<dt>_set_rules_for_policy(self, context, firewall_policy_db, rule_id_list):</dt>
+<dd><ul class="first last">
+<li><p class="first"><strong>説明：firewall_policy(firewall_policy_db)にrule(rule_id_list)を設定する</strong></p>
+</li>
+<li><p class="first">context.session.begin(subtransactions=True):を実行する</p>
+</li>
+<li><p class="first">fwp_db = firewall_policy_dbを実行する</p>
+</li>
+<li><p class="first">rule_id_listが無い場合、fwp_db.firewall_rulesに[]を設定し、fwp_db.audited=Falseに設定してreturnする</p>
+</li>
+<li><p class="first">rule_id_listからidを抽出してリスト化する(filters変数にセット)</p>
+</li>
+<li><p class="first">self._get_collection_queryを使って、filtersをキーとしてfirewall ruleをDBから検索する(rules_in_db変数にセット)</p>
+</li>
+<li><p class="first">検索結果のrules_in_dbからdictを生成する(rule_dict変数にセット)</p>
+</li>
+<li><dl class="first docutils">
+<dt>rule_id_listをループ(fwrule_id)</dt>
+<dd><ul class="first last simple">
+<li>fwrule_idがrules_dictに含まれていない場合は、firewall.FirewallRuleNotFoundをraiseする</li>
+<li>rules_dict[fwrule_id][&#8216;firewall_policy_id&#8217;]が、fwp_db[&#8216;id&#8217;]と異なる場合は、firewall.FirewallRuleInUseをraiseする</li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><p class="first">fwp_db.firewall_rulesを[]に設定し、rule_id_listで更新する</p>
+</li>
+<li><p class="first">fwp_db.firewall_rules.reorder()</p>
+</li>
+<li><p class="first">fwp_db.audited = False</p>
+</li>
+</ul>
+</dd>
+</dl>
+</li>
+</ul>
+</div></blockquote>
 </div>
 </div>
 
@@ -535,11 +686,12 @@ Neutron Firewall Service Pluginの実装。FWaaS request/responseのワークフ
   <ul>
 <li><a class="reference internal" href="#">FWaaS internal</a><ul>
 <li><a class="reference internal" href="#fwaas">FWaaSの構造</a></li>
-<li><a class="reference internal" href="#firewall-l3-agent-fwaasl3agentrpccallback">firewall_l3_agent.FWaaSL3AgentRpcCallback</a></li>
+<li><a class="reference internal" href="#firewall-l3-agent-fwaasl3agentrpccallback">firewall_l3_agent.FWaaSL3AgentRpcCallback ★エージェント側</a></li>
 <li><a class="reference internal" href="#class-firewallcallbacks-n-rpc-rpccallback">class FirewallCallbacks(n_rpc.RpcCallback) ★プラグイン側</a></li>
 <li><a class="reference internal" href="#class-firewallagentapi-n-rpc-rpcproxy">class FirewallAgentApi(n_rpc.RpcProxy): ★プラグイン側</a></li>
 <li><a class="reference internal" href="#class-firewallcountexceeded-n-exception-conflict">class FirewallCountExceeded(n_exception.Conflict): ★プラグイン側</a></li>
 <li><a class="reference internal" href="#class-firewallplugin-firewall-db-firewall-db-mixin">class FirewallPlugin(firewall_db.Firewall_db_mixin): ★プラグイン側</a></li>
+<li><a class="reference internal" href="#db">DBレコード構造★</a></li>
 <li><a class="reference internal" href="#firewall-db-firewall-db-mixin">firewall_db.Firewall_db_mixin: ★プラグイン側</a></li>
 </ul>
 </li>

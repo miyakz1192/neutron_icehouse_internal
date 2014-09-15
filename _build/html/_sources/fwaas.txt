@@ -6,8 +6,8 @@ FWaaSの構造
   L3NATAgentにFWaaS関連のモジュール(#1)を組み込むことで実現している。何か特殊なエージェントが別に起動するわけではない。
   (#1) firewall_l3_agent.FWaaSL3AgentRpcCallback
 
-firewall_l3_agent.FWaaSL3AgentRpcCallback 
-------------------------------------------
+firewall_l3_agent.FWaaSL3AgentRpcCallback ★エージェント側
+---------------------------------------------------------
 [ファイル]
 
 neutron/services/firewall/agents/l3reference/firewall_l3_agent.py
@@ -92,6 +92,9 @@ class FirewallCallbacks(n_rpc.RpcCallback) ★プラグイン側
 --------------------------------------------------------
 [ファイル]
 neutron/services/firewall/fwaas_plugin.py
+
+[概要]
+AMQPのイベントごとに実行されるコールバックの定義
 
   - __init__(self, plugin):
  
@@ -276,6 +279,78 @@ Neutron Firewall Service Pluginの実装。FWaaS request/responseのワークフ
       - fwp = super(FirewallPlugin,self).remove_rule(context, id, rule_info)を実行する
       - self._rpc_update_firewall_policy(context, id)を実行してagentに通知する
 
+DBレコード構造★
+---------------
+
+[ファイル]
+neutron/db/firewall/firewall_db.py
+
+- class FirewallRule(model_base.BASEV2, models_v2.HasId, models_v2.HasTenant)
+    + PK:ID
+    + FK:firewall_policies.id
+
+- class Firewall(model_base.BASEV2, models_v2.HasId, models_v2.HasTenant):
+    + PK:ID
+    + FK:firewall_policies.id
+
+- class FirewallPolicy(model_base.BASEV2, models_v2.HasId, models_v2.HasTenant):
+    + PK:ID
+    + firewall_rules = orm.relationship(
+        FirewallRule,
+        backref=orm.backref('firewall_policies', cascade='all, delete'),
+        order_by='FirewallRule.position',
+        collection_class=ordering_list('position', count_from=1))
+
+
+
 firewall_db.Firewall_db_mixin: ★プラグイン側
 --------------------------------------------
   
+[ファイル]
+neutron/db/firewall/firewall_db.py
+
+[概要]
+firewall pluginのDB関連の処理を行うmixin
+
+  - _core_plugin(self):
+      - **説明：プラグインを返す**
+
+  - _get_firewall(self, context, id):
+      - **説明：firewallをidをキーとして検索する**
+      - self._get_by_id(context, Firewall, id)でレコードを検索する
+      - ※例外をキャッチして、NoResultFountの場合はfirewall.FirewallNotFound(firewall_id=id)をraiseする
+
+  - _get_firewall_policy(self, context, id):
+      - **説明：firewall policyを返す**
+      - return self._get_by_id(context, FirewallPolicy, id)
+      - ※例外をキャッチして、NoResultFountの場合はfirewall.FirewallPolicyNotFound(firewall_policy_id=id)をraiseする
+
+  - _get_firewall_rule(self, context, id):
+      - **説明：firewall ruleを返す**
+      - return self._get_by_id(context, FirewallRule, id)
+      - ※例外をキャッチして、NoResultFountの場合はfirewall.FirewallRuleNotFound(firewall_rule_id=id)をraiseする
+
+  - _make_firewall_dict(self, fw, fields=None):
+      - **説明：firewall情報をdictにして返す**
+
+  - _make_firewall_policy_dict(self, firewall_policy, fields=None):
+      - **説明：firewall policy情報をdictにして返す**
+
+  - _make_firewall_rule_dict(self, firewall_rule, fields=None):
+      - **説明：firewall rule情報をdictにして返す**
+
+  - _set_rules_for_policy(self, context, firewall_policy_db, rule_id_list):
+      - **説明：firewall_policy(firewall_policy_db)にrule(rule_id_list)を設定する**
+      - context.session.begin(subtransactions=True):を実行する
+      - fwp_db = firewall_policy_dbを実行する
+      - rule_id_listが無い場合、fwp_db.firewall_rulesに[]を設定し、fwp_db.audited=Falseに設定してreturnする
+      - rule_id_listからidを抽出してリスト化する(filters変数にセット)
+      - self._get_collection_queryを使って、filtersをキーとしてfirewall ruleをDBから検索する(rules_in_db変数にセット)
+      - 検索結果のrules_in_dbからdictを生成する(rule_dict変数にセット)
+      - rule_id_listをループ(fwrule_id)
+          + fwrule_idがrules_dictに含まれていない場合は、firewall.FirewallRuleNotFoundをraiseする
+          + rules_dict[fwrule_id]['firewall_policy_id']が、fwp_db['id']と異なる場合は、firewall.FirewallRuleInUseをraiseする
+      - fwp_db.firewall_rulesを[]に設定し、rule_id_listで更新する
+      - fwp_db.firewall_rules.reorder()
+      - fwp_db.audited = False
+ 
