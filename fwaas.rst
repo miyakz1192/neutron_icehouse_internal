@@ -1,5 +1,5 @@
-FWaaS internal
-==============
+FWaaS internal(icehouse)
+========================
 
 FWaaSの構造
 -----------
@@ -346,7 +346,7 @@ firewall pluginのDB関連の処理を行うmixin
       - **説明：firewall rule情報をdictにして返す**
 
   - _set_rules_for_policy(self, context, firewall_policy_db, rule_id_list):
-      - **説明：firewall_policy(firewall_policy_db)にrule(rule_id_list)を設定する**
+      - **説明：firewall_policy(firewall_policy_db)にrule(rule_id_list)を設定する(policyに関連付くrulesは一旦リセットされ、rule_id_listに指定されたrulesが新たに設定される)**
       - context.session.begin(subtransactions=True):を実行する
       - fwp_db = firewall_policy_dbを実行する
       - rule_id_listが無い場合、fwp_db.firewall_rulesに[]を設定し、fwp_db.audited=Falseに設定してreturnする
@@ -424,4 +424,98 @@ firewall pluginのDB関連の処理を行うmixin
   -  get_firewalls_count(self, context, filters=None):
       - **説明：firewallの個数を返す**
       - return self._get_collection_count(context, Firewall,filters=filters)
+
+  -  create_firewall_policy(self, context, firewall_policy):
+      - **説明：firewall polcyの作成を行う**
+      - self._get_tenant_id_for_create(context, fwp)でテナントIDを得る
+      - FirewallPolicyのDBレコードを作成する
+      - context.session.add(fwp_db)でレコードをコミットする
+      - _set_rules_for_policyでpolicyにruleを設定する
+      - return self._make_firewall_policy_dict(fwp_db)を返す
+
+  -  update_firewall_policy(self, context, id, firewall_policy):
+      - **説明：firewall polcyの更新を行う**
+      - self._get_firewall_policy(context, id)でpolicyの検索を行う
+      - self._set_rules_for_policyでfirewall policyの作成を行う
+      - 引数として与えられたfirewall_policyにautitedが指定されていない場合は、fwp変数を更新し、DBレコードのauditedフィールドをFalseに設定するようにする(次のfwp_db.update(fwp))
+      - DBを更新する
+      - return self._make_firewall_policy_dict(fwp_db)を返す
+
+  -  delete_firewall_policy(self, context, id):
+      - **説明：firewall polcyの削除を行う**
+      - self._get_firewall_policy(context, id)でfirewall policyを検索
+      - 検索結果のfirewall policyのidをキーとしてFirewallテーブルを検索(firewall policyがFirewallで使用されているかをチェック)
+          + 使用されている場合：firewall.FirewallPolicyInUse(firewall_policy_id=id)
+          + 使用されていない場合、firewall policyをDBから削除
+
+  - get_firewall_policy(self, context, id, fields=None):
+      - **説明：firewall polcyの取得を行う**
+      - DBから検索して、その結果をself._make_firewall_policy_dict(fwp, fields)して返す
+
+  - get_firewall_policies(self, context, filters=None, fields=None):
+      - **説明：複数のfirewall polcyの取得を行う**
+
+  - get_firewalls_policies_count(self, context, filters=None):
+      - **説明：複数のfirewall polcyの個数の取得を行う**
+
+番外(fieldsのフィルタリング)
+----------------------------
+
+neutronのAPIではGET系であれば取得するfieldを選択(filter)できる。それは、neutron-erverのコードでは以下のように行われている(FWaaSの場合。neutronの他のリソースでも同じと考えられる)::
+
+    def get_firewall_policy(self, context, id, fields=None):
+        LOG.debug(_("get_firewall_policy() called"))
+        fwp = self._get_firewall_policy(context, id)
+        return self._make_firewall_policy_dict(fwp, fields)
+
+get_firewall_policyにfieldsを指定することで、欲しいfieldを取得できる。処理的には、self._make_firewall_policy_dictで行われている。::
+
+    def _make_firewall_policy_dict(self, firewall_policy, fields=None):
+        fw_rules = [rule['id'] for rule in firewall_policy['firewall_rules']]
+        firewalls = [fw['id'] for fw in firewall_policy['firewalls']]
+        res = {'id': firewall_policy['id'],
+               'tenant_id': firewall_policy['tenant_id'],
+               'name': firewall_policy['name'],
+               'description': firewall_policy['description'],
+               'shared': firewall_policy['shared'],
+               'audited': firewall_policy['audited'],
+               'firewall_rules': fw_rules,
+               'firewall_list': firewalls}
+        return self._fields(res, fields)
+
+このメソッドの引数fieldsが、このメソッドの中で一度も使われずに、そのままself._fields(res, fields)に渡されている。::
+
+    def _fields(self, resource, fields):
+        if fields:
+            return dict(((key, item) for key, item in resource.items()
+                         if key in fields))
+        return resource
+
+つまり、DBの検索結果として生成したdictを上記のように単純にフィルターしているだけである。DBの機能を使ってフィルターが実現されている訳ではない。railsでは自分の欲しいfieldだけをDBから抽出する機能があるが、neutron-serverが利用しているpythonのsqlarchemyではrailsのような機能が無いためだろか、DBから取ってきた情報を自前でフィルターしている。filterを指定すると、それなりにneutron-serverの負荷が増えるのではないかと思う。
+
+ところで、get_firewall_policyは単数だが、複数のpolicyの情報を取得するmethodも用意されている。::
+
+    def get_firewall_policies(self, context, filters=None, fields=None):
+        LOG.debug(_("get_firewall_policies() called"))
+        return self._get_collection(context, FirewallPolicy,
+                                    self._make_firewall_policy_dict,
+                                    filters=filters, fields=fields)
+
+このメソッドは、_get_collectionにより複数の情報を取得している。_get_collectionに_make_firewall_policy_dictが渡されていることに注目すべき。::
+
+    def _get_collection(self, context, model, dict_func, filters=None,
+                        fields=None, sorts=None, limit=None, marker_obj=None,
+                        page_reverse=False):
+        query = self._get_collection_query(context, model, filters=filters,
+                                           sorts=sorts,
+                                           limit=limit,
+                                           marker_obj=marker_obj,
+                                           page_reverse=page_reverse)
+        items = [dict_func(c, fields) for c in query]
+        if limit and page_reverse:
+            items.reverse()
+        return items
+
+つまり、複数取得できた結果の個々の要素に対して、dict_func=make_firewall_policy_dictを実行しているだけである。
+
 

@@ -4,7 +4,7 @@
 <head>
   <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
   
-  <title>FWaaS internal &mdash; neutron internal 0 ドキュメント</title>
+  <title>FWaaS internal(icehouse) &mdash; neutron internal 0 ドキュメント</title>
   
     <link rel="stylesheet" href="_static/general.css" type="text/css" />
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
@@ -70,8 +70,8 @@
   <div id="content">
     <!-- current document area -->
     <div id="document" class="left">
-  <div class="section" id="fwaas-internal">
-<h1>FWaaS internal<a class="headerlink" href="#fwaas-internal" title="このヘッドラインへのパーマリンク">¶</a></h1>
+  <div class="section" id="fwaas-internal-icehouse">
+<h1>FWaaS internal(icehouse)<a class="headerlink" href="#fwaas-internal-icehouse" title="このヘッドラインへのパーマリンク">¶</a></h1>
 <div class="section" id="fwaas">
 <h2>FWaaSの構造<a class="headerlink" href="#fwaas" title="このヘッドラインへのパーマリンク">¶</a></h2>
 <blockquote>
@@ -640,7 +640,7 @@ firewall pluginのDB関連の処理を行うmixin</p>
 <li><dl class="first docutils">
 <dt>_set_rules_for_policy(self, context, firewall_policy_db, rule_id_list):</dt>
 <dd><ul class="first last">
-<li><p class="first"><strong>説明：firewall_policy(firewall_policy_db)にrule(rule_id_list)を設定する</strong></p>
+<li><p class="first"><strong>説明：firewall_policy(firewall_policy_db)にrule(rule_id_list)を設定する(policyに関連付くrulesは一旦リセットされ、rule_id_listに指定されたrulesが新たに設定される)</strong></p>
 </li>
 <li><p class="first">context.session.begin(subtransactions=True):を実行する</p>
 </li>
@@ -835,8 +835,129 @@ firewall pluginのDB関連の処理を行うmixin</p>
 </dd>
 </dl>
 </li>
+<li><dl class="first docutils">
+<dt>create_firewall_policy(self, context, firewall_policy):</dt>
+<dd><ul class="first last simple">
+<li><strong>説明：firewall polcyの作成を行う</strong></li>
+<li>self._get_tenant_id_for_create(context, fwp)でテナントIDを得る</li>
+<li>FirewallPolicyのDBレコードを作成する</li>
+<li>context.session.add(fwp_db)でレコードをコミットする</li>
+<li>_set_rules_for_policyでpolicyにruleを設定する</li>
+<li>return self._make_firewall_policy_dict(fwp_db)を返す</li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="first docutils">
+<dt>update_firewall_policy(self, context, id, firewall_policy):</dt>
+<dd><ul class="first last simple">
+<li><strong>説明：firewall polcyの更新を行う</strong></li>
+<li>self._get_firewall_policy(context, id)でpolicyの検索を行う</li>
+<li>self._set_rules_for_policyでfirewall policyの作成を行う</li>
+<li>引数として与えられたfirewall_policyにautitedが指定されていない場合は、fwp変数を更新し、DBレコードのauditedフィールドをFalseに設定するようにする(次のfwp_db.update(fwp))</li>
+<li>DBを更新する</li>
+<li>return self._make_firewall_policy_dict(fwp_db)を返す</li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="first docutils">
+<dt>delete_firewall_policy(self, context, id):</dt>
+<dd><ul class="first last">
+<li><p class="first"><strong>説明：firewall polcyの削除を行う</strong></p>
+</li>
+<li><p class="first">self._get_firewall_policy(context, id)でfirewall policyを検索</p>
+</li>
+<li><dl class="first docutils">
+<dt>検索結果のfirewall policyのidをキーとしてFirewallテーブルを検索(firewall policyがFirewallで使用されているかをチェック)</dt>
+<dd><ul class="first last simple">
+<li>使用されている場合：firewall.FirewallPolicyInUse(firewall_policy_id=id)</li>
+<li>使用されていない場合、firewall policyをDBから削除</li>
+</ul>
+</dd>
+</dl>
+</li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="first docutils">
+<dt>get_firewall_policy(self, context, id, fields=None):</dt>
+<dd><ul class="first last simple">
+<li><strong>説明：firewall polcyの取得を行う</strong></li>
+<li>DBから検索して、その結果をself._make_firewall_policy_dict(fwp, fields)して返す</li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="first docutils">
+<dt>get_firewall_policies(self, context, filters=None, fields=None):</dt>
+<dd><ul class="first last simple">
+<li><strong>説明：複数のfirewall polcyの取得を行う</strong></li>
+</ul>
+</dd>
+</dl>
+</li>
 </ul>
 </div></blockquote>
+</div>
+<div class="section" id="fields">
+<h2>番外(fieldsのフィルタリング)<a class="headerlink" href="#fields" title="このヘッドラインへのパーマリンク">¶</a></h2>
+<p>neutronのAPIではGET系であれば取得するfieldを選択(filter)できる。それは、neutron-erverのコードでは以下のように行われている(FWaaSの場合。neutronの他のリソースでも同じと考えられる):</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="k">def</span> <span class="nf">get_firewall_policy</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">context</span><span class="p">,</span> <span class="nb">id</span><span class="p">,</span> <span class="n">fields</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+    <span class="n">LOG</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="n">_</span><span class="p">(</span><span class="s">&quot;get_firewall_policy() called&quot;</span><span class="p">))</span>
+    <span class="n">fwp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_firewall_policy</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="nb">id</span><span class="p">)</span>
+    <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_make_firewall_policy_dict</span><span class="p">(</span><span class="n">fwp</span><span class="p">,</span> <span class="n">fields</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>get_firewall_policyにfieldsを指定することで、欲しいfieldを取得できる。処理的には、self._make_firewall_policy_dictで行われている。:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="k">def</span> <span class="nf">_make_firewall_policy_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">firewall_policy</span><span class="p">,</span> <span class="n">fields</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+    <span class="n">fw_rules</span> <span class="o">=</span> <span class="p">[</span><span class="n">rule</span><span class="p">[</span><span class="s">&#39;id&#39;</span><span class="p">]</span> <span class="k">for</span> <span class="n">rule</span> <span class="ow">in</span> <span class="n">firewall_policy</span><span class="p">[</span><span class="s">&#39;firewall_rules&#39;</span><span class="p">]]</span>
+    <span class="n">firewalls</span> <span class="o">=</span> <span class="p">[</span><span class="n">fw</span><span class="p">[</span><span class="s">&#39;id&#39;</span><span class="p">]</span> <span class="k">for</span> <span class="n">fw</span> <span class="ow">in</span> <span class="n">firewall_policy</span><span class="p">[</span><span class="s">&#39;firewalls&#39;</span><span class="p">]]</span>
+    <span class="n">res</span> <span class="o">=</span> <span class="p">{</span><span class="s">&#39;id&#39;</span><span class="p">:</span> <span class="n">firewall_policy</span><span class="p">[</span><span class="s">&#39;id&#39;</span><span class="p">],</span>
+           <span class="s">&#39;tenant_id&#39;</span><span class="p">:</span> <span class="n">firewall_policy</span><span class="p">[</span><span class="s">&#39;tenant_id&#39;</span><span class="p">],</span>
+           <span class="s">&#39;name&#39;</span><span class="p">:</span> <span class="n">firewall_policy</span><span class="p">[</span><span class="s">&#39;name&#39;</span><span class="p">],</span>
+           <span class="s">&#39;description&#39;</span><span class="p">:</span> <span class="n">firewall_policy</span><span class="p">[</span><span class="s">&#39;description&#39;</span><span class="p">],</span>
+           <span class="s">&#39;shared&#39;</span><span class="p">:</span> <span class="n">firewall_policy</span><span class="p">[</span><span class="s">&#39;shared&#39;</span><span class="p">],</span>
+           <span class="s">&#39;audited&#39;</span><span class="p">:</span> <span class="n">firewall_policy</span><span class="p">[</span><span class="s">&#39;audited&#39;</span><span class="p">],</span>
+           <span class="s">&#39;firewall_rules&#39;</span><span class="p">:</span> <span class="n">fw_rules</span><span class="p">,</span>
+           <span class="s">&#39;firewall_list&#39;</span><span class="p">:</span> <span class="n">firewalls</span><span class="p">}</span>
+    <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_fields</span><span class="p">(</span><span class="n">res</span><span class="p">,</span> <span class="n">fields</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>このメソッドの引数fieldsが、このメソッドの中で一度も使われずに、そのままself._fields(res, fields)に渡されている。:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="k">def</span> <span class="nf">_fields</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">resource</span><span class="p">,</span> <span class="n">fields</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">fields</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">dict</span><span class="p">(((</span><span class="n">key</span><span class="p">,</span> <span class="n">item</span><span class="p">)</span> <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">resource</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+                     <span class="k">if</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">fields</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">resource</span>
+</pre></div>
+</div>
+<p>つまり、DBの検索結果として生成したdictを上記のように単純にフィルターしているだけである。DBの機能を使ってフィルターが実現されている訳ではない。railsでは自分の欲しいfieldだけをDBから抽出する機能があるが、neutron-serverが利用しているpythonのsqlarchemyではrailsのような機能が無いためだろか、DBから取ってきた情報を自前でフィルターしている。filterを指定すると、それなりにneutron-serverの負荷が増えるのではないかと思う。</p>
+<p>ところで、get_firewall_policyは単数だが、複数のpolicyの情報を取得するmethodも用意されている。:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="k">def</span> <span class="nf">get_firewall_policies</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">context</span><span class="p">,</span> <span class="n">filters</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">fields</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+    <span class="n">LOG</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="n">_</span><span class="p">(</span><span class="s">&quot;get_firewall_policies() called&quot;</span><span class="p">))</span>
+    <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_collection</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="n">FirewallPolicy</span><span class="p">,</span>
+                                <span class="bp">self</span><span class="o">.</span><span class="n">_make_firewall_policy_dict</span><span class="p">,</span>
+                                <span class="n">filters</span><span class="o">=</span><span class="n">filters</span><span class="p">,</span> <span class="n">fields</span><span class="o">=</span><span class="n">fields</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>このメソッドは、_get_collectionにより複数の情報を取得している。_get_collectionに_make_firewall_policy_dictが渡されていることに注目すべき。:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="k">def</span> <span class="nf">_get_collection</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">context</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">dict_func</span><span class="p">,</span> <span class="n">filters</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span>
+                    <span class="n">fields</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">sorts</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">limit</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">marker_obj</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span>
+                    <span class="n">page_reverse</span><span class="o">=</span><span class="bp">False</span><span class="p">):</span>
+    <span class="n">query</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_collection_query</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">filters</span><span class="o">=</span><span class="n">filters</span><span class="p">,</span>
+                                       <span class="n">sorts</span><span class="o">=</span><span class="n">sorts</span><span class="p">,</span>
+                                       <span class="n">limit</span><span class="o">=</span><span class="n">limit</span><span class="p">,</span>
+                                       <span class="n">marker_obj</span><span class="o">=</span><span class="n">marker_obj</span><span class="p">,</span>
+                                       <span class="n">page_reverse</span><span class="o">=</span><span class="n">page_reverse</span><span class="p">)</span>
+    <span class="n">items</span> <span class="o">=</span> <span class="p">[</span><span class="n">dict_func</span><span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="n">fields</span><span class="p">)</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">query</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">limit</span> <span class="ow">and</span> <span class="n">page_reverse</span><span class="p">:</span>
+        <span class="n">items</span><span class="o">.</span><span class="n">reverse</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">items</span>
+</pre></div>
+</div>
+<p>つまり、複数取得できた結果の個々の要素に対して、dict_func=make_firewall_policy_dictを実行しているだけである。</p>
 </div>
 </div>
 
@@ -850,7 +971,7 @@ firewall pluginのDB関連の処理を行うmixin</p>
   <div id="toc" class="sidebarRow">
   <h3><a href="index.html">目次</a></h3>
   <ul>
-<li><a class="reference internal" href="#">FWaaS internal</a><ul>
+<li><a class="reference internal" href="#">FWaaS internal(icehouse)</a><ul>
 <li><a class="reference internal" href="#fwaas">FWaaSの構造</a></li>
 <li><a class="reference internal" href="#firewall-l3-agent-fwaasl3agentrpccallback">firewall_l3_agent.FWaaSL3AgentRpcCallback ★エージェント側</a></li>
 <li><a class="reference internal" href="#fwaas-driver">FWaaS driver処理 ★エージェント側</a></li>
@@ -860,6 +981,7 @@ firewall pluginのDB関連の処理を行うmixin</p>
 <li><a class="reference internal" href="#class-firewallplugin-firewall-db-firewall-db-mixin">class FirewallPlugin(firewall_db.Firewall_db_mixin): ★プラグイン側</a></li>
 <li><a class="reference internal" href="#db">DBレコード構造★</a></li>
 <li><a class="reference internal" href="#firewall-db-firewall-db-mixin">firewall_db.Firewall_db_mixin: ★プラグイン側</a></li>
+<li><a class="reference internal" href="#fields">番外(fieldsのフィルタリング)</a></li>
 </ul>
 </li>
 </ul>
