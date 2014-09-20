@@ -561,6 +561,14 @@ collection_class=ordering_list(&#8216;position&#8217;, count_from=1))</p>
 </dd>
 </dl>
 </li>
+<li><dl class="first docutils">
+<dt>ordering_listについては、以下を参照</dt>
+<dd><ul class="first last simple">
+<li><a class="reference external" href="http://docs.sqlalchemy.org/en/rel_0_9/orm/extensions/orderinglist.html">http://docs.sqlalchemy.org/en/rel_0_9/orm/extensions/orderinglist.html</a></li>
+</ul>
+</dd>
+</dl>
+</li>
 </ul>
 </dd>
 </dl>
@@ -894,6 +902,157 @@ firewall pluginのDB関連の処理を行うmixin</p>
 <dt>get_firewall_policies(self, context, filters=None, fields=None):</dt>
 <dd><ul class="first last simple">
 <li><strong>説明：複数のfirewall polcyの取得を行う</strong></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="first docutils">
+<dt>get_firewalls_policies_count(self, context, filters=None):</dt>
+<dd><ul class="first last simple">
+<li><strong>説明：複数のfirewall polcyの個数の取得を行う</strong></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="first docutils">
+<dt>create_firewall_rule(self, context, firewall_rule):</dt>
+<dd><ul class="first last simple">
+<li><strong>説明：firewall ruleの作成を行う</strong></li>
+<li>self._validate_fwr_protocol_parameters(fwr)でprotocolのチェックを行う</li>
+<li>self._get_tenant_id_for_create(context, fwr)でtenant idの取得を行う</li>
+<li>source port のmin maxを得る</li>
+<li>dest port のmin maxを得る</li>
+<li>FirewallRuleのDBレコードを登録する</li>
+<li>self._make_firewall_rule_dict(fwr_db)を返す</li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="first docutils">
+<dt>update_firewall_rule(self, context, id, firewall_rule):</dt>
+<dd><ul class="first last simple">
+<li><strong>説明：firewall ruleの更新を行う</strong></li>
+<li>引数のfirewall_ruleにsource portが指定されていた場合、fwr変数(firewall rule更新用の変数)に設定する</li>
+<li>引数のfirewall_ruleにdest portが指定されていた場合、fwr変数(firewall rule更新用の変数)に設定する</li>
+<li>self._get_firewall_rule(context, id)でfirewall ruleを検索する</li>
+<li>DBのupdateを行う</li>
+<li>もし、firewall ruleにfirewall_policy_idが設定されている場合、firewall policyのauditedをFalseに設定する</li>
+<li>return self._make_firewall_rule_dict(fwr_db)を返す</li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="first docutils">
+<dt>delete_firewall_rule(self, context, id):</dt>
+<dd><ul class="first last simple">
+<li><strong>説明：firewall ruleの削除を行う</strong></li>
+<li>削除対象のfirewall ruleがfirewall policyに設定されていた場合、firewall.FirewallRuleInUse(firewall_rule_id=id)をraiseする</li>
+<li>DBからfirewall ruleを削除する。</li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="first docutils">
+<dt>get_firewall_rule(self, context, id, fields=None):</dt>
+<dd><ul class="first last simple">
+<li><strong>説明：firewall ruleの取得を行う</strong></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="first docutils">
+<dt>get_firewall_rules(self, context, filters=None, fields=None):</dt>
+<dd><ul class="first last simple">
+<li><strong>説明：複数のfirewall ruleの取得を行う</strong></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="first docutils">
+<dt>get_firewalls_rules_count(self, context, filters=None):</dt>
+<dd><ul class="first last simple">
+<li><strong>説明：firewall ruleの個数を返す</strong></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="first docutils">
+<dt>_validate_insert_remove_rule_request(self, id, rule_info):</dt>
+<dd><ul class="first last simple">
+<li><strong>説明：ruleのinsert/removeリクエストのチェックを行う</strong></li>
+<li>rule_infoが未指定、または、rule_infoにfirewall_rule_idが無い場合は、firewall.FirewallRuleInfoMissing()をraiseする</li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="first docutils">
+<dt>insert_rule(self, context, id, rule_info):</dt>
+<dd><ul class="first last">
+<li><p class="first"><strong>説明：ruleのinsertを行う</strong></p>
+</li>
+<li><p class="first">_validate_insert_remove_rule_request(self, id, rule_info):でチェックを行う</p>
+</li>
+<li><p class="first">insert_before変数をTrueに設定する</p>
+</li>
+<li><p class="first">ref_firewall_rule_idをNoneに設定する</p>
+</li>
+<li><p class="first">rule_infoにfirewall_rule_idが無い場合は、firewall.FirewallRuleNotFound(firewall_rule_id=None)をraiseする</p>
+</li>
+<li><p class="first">rule_infoにinsert_beforeが存在する場合、ref_firewall_rule_id変数に、rule_info[&#8216;insert_before&#8217;]を設定</p>
+</li>
+<li><p class="first">ref_firewall_rule_id変数がNoneであり、かつ、&#8217;insert_after&#8217;がrule_infoに指定されていた場合、ref_firewall_rule_id変数に、rule_info[&#8216;insert_after&#8217;]を設定（※insert_beforeとinsert_afterの両方が設定されていた場合は、insert_beforeが使用されるという仕様）</p>
+</li>
+<li><p class="first">insert_before変数をFalseに設定</p>
+</li>
+<li><p class="first">引数firewall_rule_idのfirewall ruleがすでに、とあるfirewall policyで使われている場合は、firewall.FirewallRuleInUse(firewall_rule_id=fwr_db[&#8216;id&#8217;])をraise</p>
+</li>
+<li><dl class="first docutils">
+<dt>ref_firewall_rule_id変数が設定されている場合、</dt>
+<dd><ul class="first last simple">
+<li>insert_beforeがTrueの場合、positionにrule_info[&#8216;insert_before&#8217;](=ref_firewall_rule_id)のpositionを代入する</li>
+<li>insert_beforeがTrueでない場合、positionにrule_info[&#8216;insert_after&#8217;](=ref_firewall_rule_id)のposition+1を代入する</li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="first docutils">
+<dt>ref_firewall_rule_id変数が設定されていない場合、</dt>
+<dd><ul class="first last simple">
+<li>positionを1に設定する(要するにルールの先頭)</li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><p class="first">self._process_rule_for_policy(context, id, fwr_db,position)の実行結果を返す(最終的にfirewall policyの情報をdictにしたもを返す)</p>
+</li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="first docutils">
+<dt>remove_rule(self, context, id, rule_info):</dt>
+<dd><blockquote class="first">
+<div><ul class="simple">
+<li><strong>説明：ruleのremoveを行う</strong></li>
+<li>self._validate_insert_remove_rule_request(id, rule_info)でリクエストをチェック</li>
+</ul>
+</div></blockquote>
+<ul class="last">
+<li><p class="first">rule_info[&#8216;firewall_rule_id&#8217;]にfirewall_rule_idが設定されていない場合は、firewall.FirewallRuleNotFound(firewall_rule_id=None)をraiseする</p>
+</li>
+<li><p class="first">rule_infoに含まれるfirewall_rule_idを参照してDBから検索</p>
+</li>
+<li><p class="first">検索結果のfirewall_ruleのIDと引数のidが一致しない場合は、firewall.FirewallRuleNotAssociatedWithPolicyをraiseする</p>
+</li>
+<li><dl class="first docutils">
+<dt>self._process_rule_for_policy(context, id, fwr_db, None)の結果を返す</dt>
+<dd><ul class="first last simple">
+<li>指定したruleがpolicyから削除される(rule自体はDBからは消去されない)</li>
+<li>最終的にはfirewall policyのdictが返る</li>
+</ul>
+</dd>
+</dl>
+</li>
 </ul>
 </dd>
 </dl>

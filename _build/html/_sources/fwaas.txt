@@ -306,7 +306,8 @@ neutron/db/firewall/firewall_db.py
         backref=orm.backref('firewall_policies', cascade='all, delete'),
         order_by='FirewallRule.position',
         collection_class=ordering_list('position', count_from=1))
-
+    + ordering_listについては、以下を参照
+        + http://docs.sqlalchemy.org/en/rel_0_9/orm/extensions/orderinglist.html
 
 
 firewall_db.Firewall_db_mixin: ★プラグイン側
@@ -454,6 +455,73 @@ firewall pluginのDB関連の処理を行うmixin
 
   - get_firewall_policies(self, context, filters=None, fields=None):
       - **説明：複数のfirewall polcyの取得を行う**
+
+  - get_firewalls_policies_count(self, context, filters=None):
+      - **説明：複数のfirewall polcyの個数の取得を行う**
+
+  - create_firewall_rule(self, context, firewall_rule):
+      - **説明：firewall ruleの作成を行う**
+      - self._validate_fwr_protocol_parameters(fwr)でprotocolのチェックを行う
+      - self._get_tenant_id_for_create(context, fwr)でtenant idの取得を行う
+      - source port のmin maxを得る
+      - dest port のmin maxを得る
+      - FirewallRuleのDBレコードを登録する
+      - self._make_firewall_rule_dict(fwr_db)を返す
+
+  - update_firewall_rule(self, context, id, firewall_rule):
+      - **説明：firewall ruleの更新を行う**
+      - 引数のfirewall_ruleにsource portが指定されていた場合、fwr変数(firewall rule更新用の変数)に設定する
+      - 引数のfirewall_ruleにdest portが指定されていた場合、fwr変数(firewall rule更新用の変数)に設定する
+      - self._get_firewall_rule(context, id)でfirewall ruleを検索する
+      - DBのupdateを行う
+      - もし、firewall ruleにfirewall_policy_idが設定されている場合、firewall policyのauditedをFalseに設定する
+      - return self._make_firewall_rule_dict(fwr_db)を返す
+
+  - delete_firewall_rule(self, context, id):
+      - **説明：firewall ruleの削除を行う**
+      - 削除対象のfirewall ruleがfirewall policyに設定されていた場合、firewall.FirewallRuleInUse(firewall_rule_id=id)をraiseする
+      - DBからfirewall ruleを削除する。
+
+  - get_firewall_rule(self, context, id, fields=None):
+      - **説明：firewall ruleの取得を行う**
+
+  - get_firewall_rules(self, context, filters=None, fields=None):
+      - **説明：複数のfirewall ruleの取得を行う**
+
+  - get_firewalls_rules_count(self, context, filters=None):
+      - **説明：firewall ruleの個数を返す**
+
+  - _validate_insert_remove_rule_request(self, id, rule_info):
+      - **説明：ruleのinsert/removeリクエストのチェックを行う**
+      - rule_infoが未指定、または、rule_infoにfirewall_rule_idが無い場合は、firewall.FirewallRuleInfoMissing()をraiseする
+
+  - insert_rule(self, context, id, rule_info):
+      - **説明：ruleのinsertを行う**
+      - _validate_insert_remove_rule_request(self, id, rule_info):でチェックを行う
+      - insert_before変数をTrueに設定する
+      - ref_firewall_rule_idをNoneに設定する
+      - rule_infoにfirewall_rule_idが無い場合は、firewall.FirewallRuleNotFound(firewall_rule_id=None)をraiseする
+      - rule_infoにinsert_beforeが存在する場合、ref_firewall_rule_id変数に、rule_info['insert_before']を設定
+      - ref_firewall_rule_id変数がNoneであり、かつ、'insert_after'がrule_infoに指定されていた場合、ref_firewall_rule_id変数に、rule_info['insert_after']を設定（※insert_beforeとinsert_afterの両方が設定されていた場合は、insert_beforeが使用されるという仕様）
+      - insert_before変数をFalseに設定
+      - 引数firewall_rule_idのfirewall ruleがすでに、とあるfirewall policyで使われている場合は、firewall.FirewallRuleInUse(firewall_rule_id=fwr_db['id'])をraise
+      - ref_firewall_rule_id変数が設定されている場合、
+          + insert_beforeがTrueの場合、positionにrule_info['insert_before'](=ref_firewall_rule_id)のpositionを代入する
+          + insert_beforeがTrueでない場合、positionにrule_info['insert_after'](=ref_firewall_rule_id)のposition+1を代入する
+      - ref_firewall_rule_id変数が設定されていない場合、
+          + positionを1に設定する(要するにルールの先頭)
+      - self._process_rule_for_policy(context, id, fwr_db,position)の実行結果を返す(最終的にfirewall policyの情報をdictにしたもを返す)
+
+  - remove_rule(self, context, id, rule_info):
+      - **説明：ruleのremoveを行う**
+      - self._validate_insert_remove_rule_request(id, rule_info)でリクエストをチェック
+     - rule_info['firewall_rule_id']にfirewall_rule_idが設定されていない場合は、firewall.FirewallRuleNotFound(firewall_rule_id=None)をraiseする
+     - rule_infoに含まれるfirewall_rule_idを参照してDBから検索
+     - 検索結果のfirewall_ruleのIDと引数のidが一致しない場合は、firewall.FirewallRuleNotAssociatedWithPolicyをraiseする
+     - self._process_rule_for_policy(context, id, fwr_db, None)の結果を返す
+         + 指定したruleがpolicyから削除される(rule自体はDBからは消去されない)
+         + 最終的にはfirewall policyのdictが返る
+
 
 番外(fieldsのフィルタリング)
 ----------------------------
