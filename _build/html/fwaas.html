@@ -186,7 +186,360 @@
 </div>
 <div class="section" id="fwaas-driver">
 <h2>FWaaS driver処理 ★エージェント側<a class="headerlink" href="#fwaas-driver" title="このヘッドラインへのパーマリンク">¶</a></h2>
-<p>(未稿)</p>
+<p>FWaaSのDriverは以下のとおり:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="n">driver</span> <span class="o">=</span> <span class="n">neutron</span><span class="o">.</span><span class="n">services</span><span class="o">.</span><span class="n">firewall</span><span class="o">.</span><span class="n">drivers</span><span class="o">.</span><span class="n">linux</span><span class="o">.</span><span class="n">iptables_fwaas</span><span class="o">.</span><span class="n">IptablesFwaasDriver</span>
+</pre></div>
+</div>
+<p>今回はIptablesFwaasDriverについて調査する。
+ファイル名:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="n">neutron</span><span class="o">/</span><span class="n">services</span><span class="o">/</span><span class="n">firewall</span><span class="o">/</span><span class="n">drivers</span><span class="o">/</span><span class="n">linux</span><span class="o">/</span><span class="n">iptables_fwaas</span><span class="o">.</span><span class="n">py</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="class-iptablesfwaasdriver-fwaas-base-fwaasdriverbase">
+<h2>class IptablesFwaasDriver(fwaas_base.FwaasDriverBase):★エージェント側<a class="headerlink" href="#class-iptablesfwaasdriver-fwaas-base-fwaasdriverbase" title="このヘッドラインへのパーマリンク">¶</a></h2>
+<blockquote>
+<div><ul>
+<li><dl class="first docutils">
+<dt>__init__(self):</dt>
+<dd><ul class="first last simple">
+<li><strong>説明：初期化</strong></li>
+<li>debugメッセージだけを出して何もしない</li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="first docutils">
+<dt>create_firewall(self, apply_list, firewall):</dt>
+<dd><ul class="first last">
+<li><p class="first"><strong>説明：firewall を作成する</strong></p>
+</li>
+<li><dl class="first docutils">
+<dt>firewall[&#8216;admin_state_up&#8217;]が指定されている場合</dt>
+<dd><ul class="first last simple">
+<li>self._setup_firewall(apply_list, firewall)</li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="first docutils">
+<dt>firewall[&#8216;admin_state_up&#8217;]が指定されていない場合</dt>
+<dd><ul class="first last simple">
+<li>self.apply_default_policy(apply_list, firewall)</li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><p class="first">上記処理で例外が発生した場合、fw_ext.FirewallInternalDriverError(driver=FWAAS_DRIVER_NAME)raiseする</p>
+</li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="first docutils">
+<dt>delete_firewall(self, apply_list, firewall):</dt>
+<dd><ul class="first last">
+<li><p class="first"><strong>説明：firewall を削除する</strong></p>
+</li>
+<li><p class="first">fwid = firewall[&#8216;id&#8217;]</p>
+</li>
+<li><dl class="first docutils">
+<dt>apply_listの個々についてloop(router_info)</dt>
+<dd><ul class="first last simple">
+<li>router_infoからiptbles_managerを取得(ipt_mgr)</li>
+<li>self._remove_chains(fwid, ipt_mgr)を実行してchainを削除</li>
+<li>self._remove_default_chains(ipt_mgr)を実行してdefault chain削除</li>
+<li>ipt_mgr.defer_apply_off()を実行して、即座に変更を反映(apply the changes immediately (no defer in firewall path)</li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><p class="first">上記処理で例外が発生した場合は、fw_ext.FirewallInternalDriverError(driver=FWAAS_DRIVER_NAME)をraise</p>
+</li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="first docutils">
+<dt>update_firewall(self, apply_list, firewall):</dt>
+<dd><ul class="first last">
+<li><p class="first"><strong>説明：firewall を更新する(処理内容はcreate_firewallと同じ)</strong></p>
+</li>
+<li><dl class="first docutils">
+<dt>firewall[&#8216;admin_state_up&#8217;]が指定されている場合</dt>
+<dd><ul class="first last simple">
+<li>self._setup_firewall(apply_list, firewall)</li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="first docutils">
+<dt>firewall[&#8216;admin_state_up&#8217;]が指定されていない場合</dt>
+<dd><ul class="first last simple">
+<li>self.apply_default_policy(apply_list, firewall)</li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><p class="first">上記処理で例外が発生した場合、fw_ext.FirewallInternalDriverError(driver=FWAAS_DRIVER_NAME)raiseする</p>
+</li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="first docutils">
+<dt>apply_default_policy(self, apply_list, firewall):</dt>
+<dd><ul class="first last">
+<li><p class="first"><strong>説明：defauly policyを適用する</strong></p>
+</li>
+<li><p class="first">fwid = firewall[&#8216;id&#8217;]</p>
+</li>
+<li><dl class="first docutils">
+<dt>apply_listの個々をループ(router_info)</dt>
+<dd><ul class="first last simple">
+<li>ipt_mgr = router_info.iptables_manager</li>
+<li>chainとdefault chainを削除(the following only updates local memory; no hole in FW)</li>
+<li>default policy chainを追加し、policy chainを有効化する(defaultのDROP ALL policy chainを作成する)</li>
+<li>ipt_mgr.defer_apply_off()で即座に変更を反映する</li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><p class="first">上記処理で例外が発生した場合は、fw_ext.FirewallInternalDriverError(driver=FWAAS_DRIVER_NAME)をraiseする</p>
+</li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="first docutils">
+<dt>_setup_firewall(self, apply_list, firewall):</dt>
+<dd><ul class="first last">
+<li><p class="first"><strong>説明：firewallをセットアップする(apply_default_policyと処理は同じ)</strong></p>
+</li>
+<li><p class="first">fwid = firewall[&#8216;id&#8217;]</p>
+</li>
+<li><dl class="first docutils">
+<dt>apply_listの個々をループ(router_info)</dt>
+<dd><ul class="first last simple">
+<li>ipt_mgr = router_info.iptables_manager</li>
+<li>chainとdefault chainを削除(the following only updates local memory; no hole in FW)</li>
+<li>default policy chainを追加し、policy chainを有効化する(defaultのDROP ALL policy chainを作成する)</li>
+<li>ipt_mgr.defer_apply_off()で即座に変更を反映する</li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><p class="first">上記処理で例外が発生した場合は、fw_ext.FirewallInternalDriverError(driver=FWAAS_DRIVER_NAME)をraiseする</p>
+</li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="first docutils">
+<dt>_get_chain_name(self, fwid, ver, direction):</dt>
+<dd><ul class="first simple">
+<li><strong>説明：chain nameを返す</strong></li>
+<li>&#8220;iv4&lt;firewall id&gt;&#8221;(input ipv4の場合)</li>
+<li>&#8220;ov4&lt;firewall id&gt;&#8221;(output ipv4の場合)</li>
+<li>&#8220;iv6&lt;firewall id&gt;&#8221;(input ipv6の場合)</li>
+<li>&#8220;ov6&lt;firewall id&gt;&#8221;(output ipv6の場合)</li>
+</ul>
+<p>コードは以下:</p>
+<div class="last highlight-python"><div class="highlight"><pre><span class="k">def</span> <span class="nf">_get_chain_name</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fwid</span><span class="p">,</span> <span class="n">ver</span><span class="p">,</span> <span class="n">direction</span><span class="p">):</span>
+    <span class="k">return</span> <span class="s">&#39;</span><span class="si">%s%s%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">CHAIN_NAME_PREFIX</span><span class="p">[</span><span class="n">direction</span><span class="p">],</span>
+                      <span class="n">IP_VER_TAG</span><span class="p">[</span><span class="n">ver</span><span class="p">],</span>
+                      <span class="n">fwid</span><span class="p">)</span>
+</pre></div>
+</div>
+</dd>
+</dl>
+</li>
+<li><dl class="first docutils">
+<dt>_setup_chains(self, firewall, ipt_mgr):</dt>
+<dd><ul class="first simple">
+<li><strong>説明：chainをセットアップする</strong></li>
+<li>invalid packet ruleとallow established ruleを追加する</li>
+<li>firewall[&#8216;firewall_rule_list&#8217;]に指定されたruleを追加する</li>
+</ul>
+<p>コードは以下:</p>
+<div class="last highlight-python"><div class="highlight"><pre><span class="k">def</span> <span class="nf">_setup_chains</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">firewall</span><span class="p">,</span> <span class="n">ipt_mgr</span><span class="p">):</span>
+   <span class="sd">&quot;&quot;&quot;Create Fwaas chain using the rules in the policy</span>
+<span class="sd">   &quot;&quot;&quot;</span>
+   <span class="n">fw_rules_list</span> <span class="o">=</span> <span class="n">firewall</span><span class="p">[</span><span class="s">&#39;firewall_rule_list&#39;</span><span class="p">]</span>
+   <span class="n">fwid</span> <span class="o">=</span> <span class="n">firewall</span><span class="p">[</span><span class="s">&#39;id&#39;</span><span class="p">]</span>
+
+   <span class="c">#default rules for invalid packets and established sessions</span>
+   <span class="n">invalid_rule</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_drop_invalid_packets_rule</span><span class="p">()</span>
+   <span class="n">est_rule</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_allow_established_rule</span><span class="p">()</span>
+
+   <span class="k">for</span> <span class="n">ver</span> <span class="ow">in</span> <span class="p">[</span><span class="n">IPV4</span><span class="p">,</span> <span class="n">IPV6</span><span class="p">]:</span>
+       <span class="k">if</span> <span class="n">ver</span> <span class="o">==</span> <span class="n">IPV4</span><span class="p">:</span>
+           <span class="n">table</span> <span class="o">=</span> <span class="n">ipt_mgr</span><span class="o">.</span><span class="n">ipv4</span><span class="p">[</span><span class="s">&#39;filter&#39;</span><span class="p">]</span>
+       <span class="k">else</span><span class="p">:</span>
+           <span class="n">table</span> <span class="o">=</span> <span class="n">ipt_mgr</span><span class="o">.</span><span class="n">ipv6</span><span class="p">[</span><span class="s">&#39;filter&#39;</span><span class="p">]</span>
+       <span class="n">ichain_name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_chain_name</span><span class="p">(</span><span class="n">fwid</span><span class="p">,</span> <span class="n">ver</span><span class="p">,</span> <span class="n">INGRESS_DIRECTION</span><span class="p">)</span>
+       <span class="n">ochain_name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_chain_name</span><span class="p">(</span><span class="n">fwid</span><span class="p">,</span> <span class="n">ver</span><span class="p">,</span> <span class="n">EGRESS_DIRECTION</span><span class="p">)</span>
+       <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="p">[</span><span class="n">ichain_name</span><span class="p">,</span> <span class="n">ochain_name</span><span class="p">]:</span>
+           <span class="n">table</span><span class="o">.</span><span class="n">add_chain</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+           <span class="n">table</span><span class="o">.</span><span class="n">add_rule</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">invalid_rule</span><span class="p">)</span>
+           <span class="n">table</span><span class="o">.</span><span class="n">add_rule</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">est_rule</span><span class="p">)</span>
+
+   <span class="k">for</span> <span class="n">rule</span> <span class="ow">in</span> <span class="n">fw_rules_list</span><span class="p">:</span>
+       <span class="k">if</span> <span class="ow">not</span> <span class="n">rule</span><span class="p">[</span><span class="s">&#39;enabled&#39;</span><span class="p">]:</span>
+           <span class="k">continue</span>
+       <span class="n">iptbl_rule</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_convert_fwaas_to_iptables_rule</span><span class="p">(</span><span class="n">rule</span><span class="p">)</span>
+       <span class="k">if</span> <span class="n">rule</span><span class="p">[</span><span class="s">&#39;ip_version&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="mi">4</span><span class="p">:</span>
+           <span class="n">ver</span> <span class="o">=</span> <span class="n">IPV4</span>
+           <span class="n">table</span> <span class="o">=</span> <span class="n">ipt_mgr</span><span class="o">.</span><span class="n">ipv4</span><span class="p">[</span><span class="s">&#39;filter&#39;</span><span class="p">]</span>
+       <span class="k">else</span><span class="p">:</span>
+           <span class="n">ver</span> <span class="o">=</span> <span class="n">IPV6</span>
+           <span class="n">table</span> <span class="o">=</span> <span class="n">ipt_mgr</span><span class="o">.</span><span class="n">ipv6</span><span class="p">[</span><span class="s">&#39;filter&#39;</span><span class="p">]</span>
+       <span class="n">ichain_name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_chain_name</span><span class="p">(</span><span class="n">fwid</span><span class="p">,</span> <span class="n">ver</span><span class="p">,</span> <span class="n">INGRESS_DIRECTION</span><span class="p">)</span>
+       <span class="n">ochain_name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_chain_name</span><span class="p">(</span><span class="n">fwid</span><span class="p">,</span> <span class="n">ver</span><span class="p">,</span> <span class="n">EGRESS_DIRECTION</span><span class="p">)</span>
+       <span class="n">table</span><span class="o">.</span><span class="n">add_rule</span><span class="p">(</span><span class="n">ichain_name</span><span class="p">,</span> <span class="n">iptbl_rule</span><span class="p">)</span>
+       <span class="n">table</span><span class="o">.</span><span class="n">add_rule</span><span class="p">(</span><span class="n">ochain_name</span><span class="p">,</span> <span class="n">iptbl_rule</span><span class="p">)</span>
+   <span class="bp">self</span><span class="o">.</span><span class="n">_enable_policy_chain</span><span class="p">(</span><span class="n">fwid</span><span class="p">,</span> <span class="n">ipt_mgr</span><span class="p">)</span>
+</pre></div>
+</div>
+</dd>
+</dl>
+</li>
+<li><dl class="first docutils">
+<dt>_remove_default_chains(self, nsid):</dt>
+<dd><ul class="first last">
+<li><p class="first"><strong>説明：default のchainを削除する(第一引数にはiptables_managerが入る)</strong></p>
+</li>
+<li><p class="first">コードは以下:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="k">def</span> <span class="nf">_remove_default_chains</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">nsid</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Remove fwaas default policy chain.&quot;&quot;&quot;</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">_remove_chain_by_name</span><span class="p">(</span><span class="n">IPV4</span><span class="p">,</span> <span class="n">FWAAS_DEFAULT_CHAIN</span><span class="p">,</span> <span class="n">nsid</span><span class="p">)</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">_remove_chain_by_name</span><span class="p">(</span><span class="n">IPV6</span><span class="p">,</span> <span class="n">FWAAS_DEFAULT_CHAIN</span><span class="p">,</span> <span class="n">nsid</span><span class="p">)</span>
+</pre></div>
+</div>
+</li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="first docutils">
+<dt>_remove_chains(self, fwid, ipt_mgr):</dt>
+<dd><ul class="first last">
+<li><p class="first"><strong>説明：chainを消去する</strong></p>
+</li>
+<li><p class="first">コードは以下:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="k">def</span> <span class="nf">_remove_chains</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fwid</span><span class="p">,</span> <span class="n">ipt_mgr</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Remove fwaas policy chain.&quot;&quot;&quot;</span>
+    <span class="k">for</span> <span class="n">ver</span> <span class="ow">in</span> <span class="p">[</span><span class="n">IPV4</span><span class="p">,</span> <span class="n">IPV6</span><span class="p">]:</span>
+        <span class="k">for</span> <span class="n">direction</span> <span class="ow">in</span> <span class="p">[</span><span class="n">INGRESS_DIRECTION</span><span class="p">,</span> <span class="n">EGRESS_DIRECTION</span><span class="p">]:</span>
+            <span class="n">chain_name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_chain_name</span><span class="p">(</span><span class="n">fwid</span><span class="p">,</span> <span class="n">ver</span><span class="p">,</span> <span class="n">direction</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_remove_chain_by_name</span><span class="p">(</span><span class="n">ver</span><span class="p">,</span> <span class="n">chain_name</span><span class="p">,</span> <span class="n">ipt_mgr</span><span class="p">)</span>
+</pre></div>
+</div>
+</li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="first docutils">
+<dt>_add_default_policy_chain_v4v6(self, ipt_mgr):</dt>
+<dd><ul class="first last">
+<li><p class="first"><strong>説明：default policy chain(DROP ALL)を追加する</strong></p>
+</li>
+<li><p class="first">コードは以下:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="k">def</span> <span class="nf">_add_default_policy_chain_v4v6</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ipt_mgr</span><span class="p">):</span>
+    <span class="n">ipt_mgr</span><span class="o">.</span><span class="n">ipv4</span><span class="p">[</span><span class="s">&#39;filter&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">add_chain</span><span class="p">(</span><span class="n">FWAAS_DEFAULT_CHAIN</span><span class="p">)</span>
+    <span class="n">ipt_mgr</span><span class="o">.</span><span class="n">ipv4</span><span class="p">[</span><span class="s">&#39;filter&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">add_rule</span><span class="p">(</span><span class="n">FWAAS_DEFAULT_CHAIN</span><span class="p">,</span> <span class="s">&#39;-j DROP&#39;</span><span class="p">)</span>
+    <span class="n">ipt_mgr</span><span class="o">.</span><span class="n">ipv6</span><span class="p">[</span><span class="s">&#39;filter&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">add_chain</span><span class="p">(</span><span class="n">FWAAS_DEFAULT_CHAIN</span><span class="p">)</span>
+    <span class="n">ipt_mgr</span><span class="o">.</span><span class="n">ipv6</span><span class="p">[</span><span class="s">&#39;filter&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">add_rule</span><span class="p">(</span><span class="n">FWAAS_DEFAULT_CHAIN</span><span class="p">,</span> <span class="s">&#39;-j DROP&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+</li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="first docutils">
+<dt>_remove_chain_by_name(self, ver, chain_name, ipt_mgr):</dt>
+<dd><ul class="first last">
+<li><p class="first"><strong>説明：chainをname指定で削除する</strong></p>
+</li>
+<li><p class="first">コードは以下:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="k">def</span> <span class="nf">_remove_chain_by_name</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ver</span><span class="p">,</span> <span class="n">chain_name</span><span class="p">,</span> <span class="n">ipt_mgr</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">ver</span> <span class="o">==</span> <span class="n">IPV4</span><span class="p">:</span>
+        <span class="n">ipt_mgr</span><span class="o">.</span><span class="n">ipv4</span><span class="p">[</span><span class="s">&#39;filter&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">ensure_remove_chain</span><span class="p">(</span><span class="n">chain_name</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">ipt_mgr</span><span class="o">.</span><span class="n">ipv6</span><span class="p">[</span><span class="s">&#39;filter&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">ensure_remove_chain</span><span class="p">(</span><span class="n">chain_name</span><span class="p">)</span>
+</pre></div>
+</div>
+</li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="first docutils">
+<dt>_add_rules_to_chain(self, ipt_mgr, ver, chain_name, rules):</dt>
+<dd><ul class="first last">
+<li><p class="first"><strong>説明：chainにruleを追加する</strong></p>
+</li>
+<li><p class="first">コードは以下:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="k">def</span> <span class="nf">_add_rules_to_chain</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ipt_mgr</span><span class="p">,</span> <span class="n">ver</span><span class="p">,</span> <span class="n">chain_name</span><span class="p">,</span> <span class="n">rules</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">ver</span> <span class="o">==</span> <span class="n">IPV4</span><span class="p">:</span>
+        <span class="n">table</span> <span class="o">=</span> <span class="n">ipt_mgr</span><span class="o">.</span><span class="n">ipv4</span><span class="p">[</span><span class="s">&#39;filter&#39;</span><span class="p">]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">table</span> <span class="o">=</span> <span class="n">ipt_mgr</span><span class="o">.</span><span class="n">ipv6</span><span class="p">[</span><span class="s">&#39;filter&#39;</span><span class="p">]</span>
+    <span class="k">for</span> <span class="n">rule</span> <span class="ow">in</span> <span class="n">rules</span><span class="p">:</span>
+        <span class="n">table</span><span class="o">.</span><span class="n">add_rule</span><span class="p">(</span><span class="n">chain_name</span><span class="p">,</span> <span class="n">rule</span><span class="p">)</span>
+</pre></div>
+</div>
+</li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="first docutils">
+<dt>_enable_policy_chain(self, fwid, ipt_mgr):</dt>
+<dd><ul class="first last">
+<li><p class="first"><strong>説明：policy chainを有効化する</strong></p>
+</li>
+<li><p class="first">FORWARD chainに、neutron-l3-agent-iv43a98286f(input)やneutron-l3-agent-ov43a98286f(output)へのjumpをルールを追加</p>
+</li>
+<li><p class="first">FORWARD chainにinputとoutputのFWAAS_DEFAULT_CHAINへのjumpルールを追加(inputとoutputでDROP ALL)</p>
+</li>
+<li><p class="first">コードは以下:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="k">def</span> <span class="nf">_enable_policy_chain</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fwid</span><span class="p">,</span> <span class="n">ipt_mgr</span><span class="p">):</span>
+    <span class="n">bname</span> <span class="o">=</span> <span class="n">iptables_manager</span><span class="o">.</span><span class="n">binary_name</span>
+
+    <span class="k">for</span> <span class="p">(</span><span class="n">ver</span><span class="p">,</span> <span class="n">tbl</span><span class="p">)</span> <span class="ow">in</span> <span class="p">[(</span><span class="n">IPV4</span><span class="p">,</span> <span class="n">ipt_mgr</span><span class="o">.</span><span class="n">ipv4</span><span class="p">[</span><span class="s">&#39;filter&#39;</span><span class="p">]),</span>
+                       <span class="p">(</span><span class="n">IPV6</span><span class="p">,</span> <span class="n">ipt_mgr</span><span class="o">.</span><span class="n">ipv6</span><span class="p">[</span><span class="s">&#39;filter&#39;</span><span class="p">])]:</span>
+        <span class="k">for</span> <span class="n">direction</span> <span class="ow">in</span> <span class="p">[</span><span class="n">INGRESS_DIRECTION</span><span class="p">,</span> <span class="n">EGRESS_DIRECTION</span><span class="p">]:</span>
+            <span class="n">chain_name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_chain_name</span><span class="p">(</span><span class="n">fwid</span><span class="p">,</span> <span class="n">ver</span><span class="p">,</span> <span class="n">direction</span><span class="p">)</span>
+            <span class="n">chain_name</span> <span class="o">=</span> <span class="n">iptables_manager</span><span class="o">.</span><span class="n">get_chain_name</span><span class="p">(</span><span class="n">chain_name</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">chain_name</span> <span class="ow">in</span> <span class="n">tbl</span><span class="o">.</span><span class="n">chains</span><span class="p">:</span>
+                <span class="n">jump_rule</span> <span class="o">=</span> <span class="p">[</span><span class="s">&#39;</span><span class="si">%s</span><span class="s"> qr-+ -j </span><span class="si">%s</span><span class="s">-</span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">IPTABLES_DIR</span><span class="p">[</span><span class="n">direction</span><span class="p">],</span>
+                                                   <span class="n">bname</span><span class="p">,</span> <span class="n">chain_name</span><span class="p">)]</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_add_rules_to_chain</span><span class="p">(</span><span class="n">ipt_mgr</span><span class="p">,</span> <span class="n">ver</span><span class="p">,</span> <span class="s">&#39;FORWARD&#39;</span><span class="p">,</span>
+                                         <span class="n">jump_rule</span><span class="p">)</span>
+
+    <span class="c">#jump to DROP_ALL policy</span>
+    <span class="n">chain_name</span> <span class="o">=</span> <span class="n">iptables_manager</span><span class="o">.</span><span class="n">get_chain_name</span><span class="p">(</span><span class="n">FWAAS_DEFAULT_CHAIN</span><span class="p">)</span>
+    <span class="n">jump_rule</span> <span class="o">=</span> <span class="p">[</span><span class="s">&#39;-o qr-+ -j </span><span class="si">%s</span><span class="s">-</span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">bname</span><span class="p">,</span> <span class="n">chain_name</span><span class="p">)]</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">_add_rules_to_chain</span><span class="p">(</span><span class="n">ipt_mgr</span><span class="p">,</span> <span class="n">IPV4</span><span class="p">,</span> <span class="s">&#39;FORWARD&#39;</span><span class="p">,</span> <span class="n">jump_rule</span><span class="p">)</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">_add_rules_to_chain</span><span class="p">(</span><span class="n">ipt_mgr</span><span class="p">,</span> <span class="n">IPV6</span><span class="p">,</span> <span class="s">&#39;FORWARD&#39;</span><span class="p">,</span> <span class="n">jump_rule</span><span class="p">)</span>
+
+    <span class="c">#jump to DROP_ALL policy</span>
+    <span class="n">chain_name</span> <span class="o">=</span> <span class="n">iptables_manager</span><span class="o">.</span><span class="n">get_chain_name</span><span class="p">(</span><span class="n">FWAAS_DEFAULT_CHAIN</span><span class="p">)</span>
+    <span class="n">jump_rule</span> <span class="o">=</span> <span class="p">[</span><span class="s">&#39;-i qr-+ -j </span><span class="si">%s</span><span class="s">-</span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">bname</span><span class="p">,</span> <span class="n">chain_name</span><span class="p">)]</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">_add_rules_to_chain</span><span class="p">(</span><span class="n">ipt_mgr</span><span class="p">,</span> <span class="n">IPV4</span><span class="p">,</span> <span class="s">&#39;FORWARD&#39;</span><span class="p">,</span> <span class="n">jump_rule</span><span class="p">)</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">_add_rules_to_chain</span><span class="p">(</span><span class="n">ipt_mgr</span><span class="p">,</span> <span class="n">IPV6</span><span class="p">,</span> <span class="s">&#39;FORWARD&#39;</span><span class="p">,</span> <span class="n">jump_rule</span><span class="p">)</span>
+</pre></div>
+</div>
+</li>
+</ul>
+</dd>
+</dl>
+</li>
+</ul>
+</div></blockquote>
 </div>
 <div class="section" id="class-firewallcallbacks-n-rpc-rpccallback">
 <h2>class FirewallCallbacks(n_rpc.RpcCallback) ★プラグイン側<a class="headerlink" href="#class-firewallcallbacks-n-rpc-rpccallback" title="このヘッドラインへのパーマリンク">¶</a></h2>
@@ -1134,6 +1487,7 @@ firewall pluginのDB関連の処理を行うmixin</p>
 <li><a class="reference internal" href="#fwaas">FWaaSの構造</a></li>
 <li><a class="reference internal" href="#firewall-l3-agent-fwaasl3agentrpccallback">firewall_l3_agent.FWaaSL3AgentRpcCallback ★エージェント側</a></li>
 <li><a class="reference internal" href="#fwaas-driver">FWaaS driver処理 ★エージェント側</a></li>
+<li><a class="reference internal" href="#class-iptablesfwaasdriver-fwaas-base-fwaasdriverbase">class IptablesFwaasDriver(fwaas_base.FwaasDriverBase):★エージェント側</a></li>
 <li><a class="reference internal" href="#class-firewallcallbacks-n-rpc-rpccallback">class FirewallCallbacks(n_rpc.RpcCallback) ★プラグイン側</a></li>
 <li><a class="reference internal" href="#class-firewallagentapi-n-rpc-rpcproxy">class FirewallAgentApi(n_rpc.RpcProxy): ★プラグイン側</a></li>
 <li><a class="reference internal" href="#class-firewallcountexceeded-n-exception-conflict">class FirewallCountExceeded(n_exception.Conflict): ★プラグイン側</a></li>

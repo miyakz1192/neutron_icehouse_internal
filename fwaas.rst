@@ -89,10 +89,215 @@ neutron/services/firewall/agents/l3reference/firewall_l3_agent.py
     - _invoke_driver_for_plugin_api(context,firewall,'delete_firewall')を実行する
 
 FWaaS driver処理 ★エージェント側
---------------------------------
+---------------------------------
 
-(未稿)
+FWaaSのDriverは以下のとおり::
 
+  driver = neutron.services.firewall.drivers.linux.iptables_fwaas.IptablesFwaasDriver
+
+今回はIptablesFwaasDriverについて調査する。
+ファイル名::
+
+  neutron/services/firewall/drivers/linux/iptables_fwaas.py
+
+
+class IptablesFwaasDriver(fwaas_base.FwaasDriverBase):★エージェント側
+----------------------------------------------------------------------
+
+  - __init__(self):
+      - **説明：初期化**
+      - debugメッセージだけを出して何もしない
+
+  - create_firewall(self, apply_list, firewall):
+      - **説明：firewall を作成する**
+      - firewall['admin_state_up']が指定されている場合
+          + self._setup_firewall(apply_list, firewall)
+      - firewall['admin_state_up']が指定されていない場合
+          + self.apply_default_policy(apply_list, firewall)
+      - 上記処理で例外が発生した場合、fw_ext.FirewallInternalDriverError(driver=FWAAS_DRIVER_NAME)raiseする
+
+  - delete_firewall(self, apply_list, firewall):
+      - **説明：firewall を削除する**
+      - fwid = firewall['id']
+      - apply_listの個々についてloop(router_info)
+          + router_infoからiptbles_managerを取得(ipt_mgr)
+          + self._remove_chains(fwid, ipt_mgr)を実行してchainを削除
+          + self._remove_default_chains(ipt_mgr)を実行してdefault chain削除
+          + ipt_mgr.defer_apply_off()を実行して、即座に変更を反映(apply the changes immediately (no defer in firewall path)
+      - 上記処理で例外が発生した場合は、fw_ext.FirewallInternalDriverError(driver=FWAAS_DRIVER_NAME)をraise
+
+  - update_firewall(self, apply_list, firewall):
+      - **説明：firewall を更新する(処理内容はcreate_firewallと同じ)**
+      - firewall['admin_state_up']が指定されている場合
+          + self._setup_firewall(apply_list, firewall)
+      - firewall['admin_state_up']が指定されていない場合
+          + self.apply_default_policy(apply_list, firewall)
+      - 上記処理で例外が発生した場合、fw_ext.FirewallInternalDriverError(driver=FWAAS_DRIVER_NAME)raiseする
+
+  - apply_default_policy(self, apply_list, firewall):
+      - **説明：defauly policyを適用する**
+      - fwid = firewall['id']
+      - apply_listの個々をループ(router_info)
+          + ipt_mgr = router_info.iptables_manager
+          + chainとdefault chainを削除(the following only updates local memory; no hole in FW)
+          + default policy chainを追加し、policy chainを有効化する(defaultのDROP ALL policy chainを作成する)
+          + ipt_mgr.defer_apply_off()で即座に変更を反映する
+      - 上記処理で例外が発生した場合は、fw_ext.FirewallInternalDriverError(driver=FWAAS_DRIVER_NAME)をraiseする
+
+  - _setup_firewall(self, apply_list, firewall):
+      - **説明：firewallをセットアップする(apply_default_policyと処理は同じ)**
+      - fwid = firewall['id']
+      - apply_listの個々をループ(router_info)
+          + ipt_mgr = router_info.iptables_manager
+          + chainとdefault chainを削除(the following only updates local memory; no hole in FW)
+          + default policy chainを追加し、policy chainを有効化する(defaultのDROP ALL policy chainを作成する)
+          + ipt_mgr.defer_apply_off()で即座に変更を反映する
+      - 上記処理で例外が発生した場合は、fw_ext.FirewallInternalDriverError(driver=FWAAS_DRIVER_NAME)をraiseする
+
+  - _get_chain_name(self, fwid, ver, direction):
+      - **説明：chain nameを返す**
+      - "iv4<firewall id>"(input ipv4の場合)
+      - "ov4<firewall id>"(output ipv4の場合)
+      - "iv6<firewall id>"(input ipv6の場合)
+      - "ov6<firewall id>"(output ipv6の場合)
+
+      コードは以下::
+
+        def _get_chain_name(self, fwid, ver, direction):
+            return '%s%s%s' % (CHAIN_NAME_PREFIX[direction],
+                              IP_VER_TAG[ver],
+                              fwid)
+
+  - _setup_chains(self, firewall, ipt_mgr):
+      - **説明：chainをセットアップする**
+      - invalid packet ruleとallow established ruleを追加する
+      - firewall['firewall_rule_list']に指定されたruleを追加する
+
+      コードは以下::
+
+       def _setup_chains(self, firewall, ipt_mgr):
+          """Create Fwaas chain using the rules in the policy
+          """
+          fw_rules_list = firewall['firewall_rule_list']
+          fwid = firewall['id']
+  
+          #default rules for invalid packets and established sessions
+          invalid_rule = self._drop_invalid_packets_rule()
+          est_rule = self._allow_established_rule()
+  
+          for ver in [IPV4, IPV6]:
+              if ver == IPV4:
+                  table = ipt_mgr.ipv4['filter']
+              else:
+                  table = ipt_mgr.ipv6['filter']
+              ichain_name = self._get_chain_name(fwid, ver, INGRESS_DIRECTION)
+              ochain_name = self._get_chain_name(fwid, ver, EGRESS_DIRECTION)
+              for name in [ichain_name, ochain_name]:
+                  table.add_chain(name)
+                  table.add_rule(name, invalid_rule)
+                  table.add_rule(name, est_rule)
+  
+          for rule in fw_rules_list:
+              if not rule['enabled']:
+                  continue
+              iptbl_rule = self._convert_fwaas_to_iptables_rule(rule)
+              if rule['ip_version'] == 4:
+                  ver = IPV4
+                  table = ipt_mgr.ipv4['filter']
+              else:
+                  ver = IPV6
+                  table = ipt_mgr.ipv6['filter']
+              ichain_name = self._get_chain_name(fwid, ver, INGRESS_DIRECTION)
+              ochain_name = self._get_chain_name(fwid, ver, EGRESS_DIRECTION)
+              table.add_rule(ichain_name, iptbl_rule)
+              table.add_rule(ochain_name, iptbl_rule)
+          self._enable_policy_chain(fwid, ipt_mgr)
+
+  - _remove_default_chains(self, nsid):
+      - **説明：default のchainを削除する(第一引数にはiptables_managerが入る)**
+
+      - コードは以下::
+
+         def _remove_default_chains(self, nsid):
+             """Remove fwaas default policy chain."""
+             self._remove_chain_by_name(IPV4, FWAAS_DEFAULT_CHAIN, nsid)
+             self._remove_chain_by_name(IPV6, FWAAS_DEFAULT_CHAIN, nsid)
+     
+  - _remove_chains(self, fwid, ipt_mgr):
+      - **説明：chainを消去する**
+      - コードは以下::
+
+          def _remove_chains(self, fwid, ipt_mgr):
+              """Remove fwaas policy chain."""
+              for ver in [IPV4, IPV6]:
+                  for direction in [INGRESS_DIRECTION, EGRESS_DIRECTION]:
+                      chain_name = self._get_chain_name(fwid, ver, direction)
+                      self._remove_chain_by_name(ver, chain_name, ipt_mgr)
+      
+  - _add_default_policy_chain_v4v6(self, ipt_mgr):
+      - **説明：default policy chain(DROP ALL)を追加する**
+      - コードは以下::
+
+         def _add_default_policy_chain_v4v6(self, ipt_mgr):
+             ipt_mgr.ipv4['filter'].add_chain(FWAAS_DEFAULT_CHAIN)
+             ipt_mgr.ipv4['filter'].add_rule(FWAAS_DEFAULT_CHAIN, '-j DROP')
+             ipt_mgr.ipv6['filter'].add_chain(FWAAS_DEFAULT_CHAIN)
+             ipt_mgr.ipv6['filter'].add_rule(FWAAS_DEFAULT_CHAIN, '-j DROP')
+     
+  - _remove_chain_by_name(self, ver, chain_name, ipt_mgr):
+      - **説明：chainをname指定で削除する**
+      - コードは以下::
+
+         def _remove_chain_by_name(self, ver, chain_name, ipt_mgr):
+             if ver == IPV4:
+                 ipt_mgr.ipv4['filter'].ensure_remove_chain(chain_name)
+             else:
+                 ipt_mgr.ipv6['filter'].ensure_remove_chain(chain_name)
+     
+  - _add_rules_to_chain(self, ipt_mgr, ver, chain_name, rules):
+      - **説明：chainにruleを追加する**
+      - コードは以下::
+
+         def _add_rules_to_chain(self, ipt_mgr, ver, chain_name, rules):
+             if ver == IPV4:
+                 table = ipt_mgr.ipv4['filter']
+             else:
+                 table = ipt_mgr.ipv6['filter']
+             for rule in rules:
+                 table.add_rule(chain_name, rule)
+     
+  - _enable_policy_chain(self, fwid, ipt_mgr):
+      - **説明：policy chainを有効化する**
+      - FORWARD chainに、neutron-l3-agent-iv43a98286f(input)やneutron-l3-agent-ov43a98286f(output)へのjumpをルールを追加
+      - FORWARD chainにinputとoutputのFWAAS_DEFAULT_CHAINへのjumpルールを追加(inputとoutputでDROP ALL)
+      - コードは以下::
+
+         def _enable_policy_chain(self, fwid, ipt_mgr):
+             bname = iptables_manager.binary_name
+     
+             for (ver, tbl) in [(IPV4, ipt_mgr.ipv4['filter']),
+                                (IPV6, ipt_mgr.ipv6['filter'])]:
+                 for direction in [INGRESS_DIRECTION, EGRESS_DIRECTION]:
+                     chain_name = self._get_chain_name(fwid, ver, direction)
+                     chain_name = iptables_manager.get_chain_name(chain_name)
+                     if chain_name in tbl.chains:
+                         jump_rule = ['%s qr-+ -j %s-%s' % (IPTABLES_DIR[direction],
+                                                            bname, chain_name)]
+                         self._add_rules_to_chain(ipt_mgr, ver, 'FORWARD',
+                                                  jump_rule)
+     
+             #jump to DROP_ALL policy
+             chain_name = iptables_manager.get_chain_name(FWAAS_DEFAULT_CHAIN)
+             jump_rule = ['-o qr-+ -j %s-%s' % (bname, chain_name)]
+             self._add_rules_to_chain(ipt_mgr, IPV4, 'FORWARD', jump_rule)
+             self._add_rules_to_chain(ipt_mgr, IPV6, 'FORWARD', jump_rule)
+     
+             #jump to DROP_ALL policy
+             chain_name = iptables_manager.get_chain_name(FWAAS_DEFAULT_CHAIN)
+             jump_rule = ['-i qr-+ -j %s-%s' % (bname, chain_name)]
+             self._add_rules_to_chain(ipt_mgr, IPV4, 'FORWARD', jump_rule)
+             self._add_rules_to_chain(ipt_mgr, IPV6, 'FORWARD', jump_rule)
+            
 
 class FirewallCallbacks(n_rpc.RpcCallback) ★プラグイン側
 --------------------------------------------------------
