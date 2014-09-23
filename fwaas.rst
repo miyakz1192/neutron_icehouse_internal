@@ -297,8 +297,85 @@ class IptablesFwaasDriver(fwaas_base.FwaasDriverBase):★エージェント側
              jump_rule = ['-i qr-+ -j %s-%s' % (bname, chain_name)]
              self._add_rules_to_chain(ipt_mgr, IPV4, 'FORWARD', jump_rule)
              self._add_rules_to_chain(ipt_mgr, IPV6, 'FORWARD', jump_rule)
-            
 
+  - _convert_fwaas_to_iptables_rule(self, rule):
+      - **説明：FWaaSのルールをiptablesのルールに変換する**
+      
+      コードは以下。::
+
+         def _convert_fwaas_to_iptables_rule(self, rule):
+             action = rule.get('action') == 'allow' and 'ACCEPT' or 'DROP'
+             args = [self._protocol_arg(rule.get('protocol')),
+                     self._port_arg('dport',
+                                    rule.get('protocol'),
+                                    rule.get('destination_port')),
+                     self._port_arg('sport',
+                                    rule.get('protocol'),
+                                    rule.get('source_port')),
+                     self._ip_prefix_arg('s', rule.get('source_ip_address')),
+                     self._ip_prefix_arg('d', rule.get('destination_ip_address')),
+                     self._action_arg(action)]
+     
+             iptables_rule = ' '.join(args)
+             return iptables_rule
+     
+  - _drop_invalid_packets_rule(self):
+      - **説明：INVALIDなパケットをDROPするルール**
+      
+      コードは以下。::
+            
+         def _drop_invalid_packets_rule(self):
+             return '-m state --state INVALID -j DROP'
+
+  - _allow_established_rule(self):
+      - **説明：ESTABLISHとRELATEDのルール**
+      
+      コードは以下。::
+
+         def _allow_established_rule(self):
+             return '-m state --state ESTABLISHED,RELATED -j ACCEPT'
+
+  - _action_arg(self, action):
+      - **説明：jump先のルール**
+      
+      コードは以下。::
+          
+         def _action_arg(self, action):
+             if action:
+                 return '-j %s' % action
+             return ''
+
+  - _protocol_arg(self, protocol):
+      - **説明：protocol指定ルール**
+      
+      コードは以下。::
+     
+         def _protocol_arg(self, protocol):
+             if protocol:
+                 return '-p %s' % protocol
+             return ''
+
+  - _port_arg(self, direction, protocol, port):
+      - **説明：port指定**
+      
+      コードは以下。::
+     
+         def _port_arg(self, direction, protocol, port):
+             if not (protocol in ['udp', 'tcp'] and port):
+                 return ''
+             return '--%s %s' % (direction, port)
+
+  - _ip_prefix_arg(self, direction, ip_prefix):
+      - **説明：IP prefix指定**
+      
+      コードは以下。::
+
+         def _ip_prefix_arg(self, direction, ip_prefix):
+             if ip_prefix:
+                 return '-%s %s' % (direction, ip_prefix)
+             return ''
+     
+ 
 class FirewallCallbacks(n_rpc.RpcCallback) ★プラグイン側
 --------------------------------------------------------
 [ファイル]

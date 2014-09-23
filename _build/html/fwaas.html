@@ -538,6 +538,118 @@
 </dd>
 </dl>
 </li>
+<li><dl class="first docutils">
+<dt>_convert_fwaas_to_iptables_rule(self, rule):</dt>
+<dd><ul class="first simple">
+<li><strong>説明：FWaaSのルールをiptablesのルールに変換する</strong></li>
+</ul>
+<p>コードは以下。:</p>
+<div class="last highlight-python"><div class="highlight"><pre><span class="k">def</span> <span class="nf">_convert_fwaas_to_iptables_rule</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rule</span><span class="p">):</span>
+    <span class="n">action</span> <span class="o">=</span> <span class="n">rule</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&#39;action&#39;</span><span class="p">)</span> <span class="o">==</span> <span class="s">&#39;allow&#39;</span> <span class="ow">and</span> <span class="s">&#39;ACCEPT&#39;</span> <span class="ow">or</span> <span class="s">&#39;DROP&#39;</span>
+    <span class="n">args</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_protocol_arg</span><span class="p">(</span><span class="n">rule</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&#39;protocol&#39;</span><span class="p">)),</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_port_arg</span><span class="p">(</span><span class="s">&#39;dport&#39;</span><span class="p">,</span>
+                           <span class="n">rule</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&#39;protocol&#39;</span><span class="p">),</span>
+                           <span class="n">rule</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&#39;destination_port&#39;</span><span class="p">)),</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_port_arg</span><span class="p">(</span><span class="s">&#39;sport&#39;</span><span class="p">,</span>
+                           <span class="n">rule</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&#39;protocol&#39;</span><span class="p">),</span>
+                           <span class="n">rule</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&#39;source_port&#39;</span><span class="p">)),</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_ip_prefix_arg</span><span class="p">(</span><span class="s">&#39;s&#39;</span><span class="p">,</span> <span class="n">rule</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&#39;source_ip_address&#39;</span><span class="p">)),</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_ip_prefix_arg</span><span class="p">(</span><span class="s">&#39;d&#39;</span><span class="p">,</span> <span class="n">rule</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&#39;destination_ip_address&#39;</span><span class="p">)),</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_action_arg</span><span class="p">(</span><span class="n">action</span><span class="p">)]</span>
+
+    <span class="n">iptables_rule</span> <span class="o">=</span> <span class="s">&#39; &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">args</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">iptables_rule</span>
+</pre></div>
+</div>
+</dd>
+</dl>
+</li>
+<li><dl class="first docutils">
+<dt>_drop_invalid_packets_rule(self):</dt>
+<dd><ul class="first simple">
+<li><strong>説明：INVALIDなパケットをDROPするルール</strong></li>
+</ul>
+<p>コードは以下。:</p>
+<div class="last highlight-python"><div class="highlight"><pre><span class="k">def</span> <span class="nf">_drop_invalid_packets_rule</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">return</span> <span class="s">&#39;-m state --state INVALID -j DROP&#39;</span>
+</pre></div>
+</div>
+</dd>
+</dl>
+</li>
+<li><dl class="first docutils">
+<dt>_allow_established_rule(self):</dt>
+<dd><ul class="first simple">
+<li><strong>説明：ESTABLISHとRELATEDのルール</strong></li>
+</ul>
+<p>コードは以下。:</p>
+<div class="last highlight-python"><div class="highlight"><pre><span class="k">def</span> <span class="nf">_allow_established_rule</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">return</span> <span class="s">&#39;-m state --state ESTABLISHED,RELATED -j ACCEPT&#39;</span>
+</pre></div>
+</div>
+</dd>
+</dl>
+</li>
+<li><dl class="first docutils">
+<dt>_action_arg(self, action):</dt>
+<dd><ul class="first simple">
+<li><strong>説明：jump先のルール</strong></li>
+</ul>
+<p>コードは以下。:</p>
+<div class="last highlight-python"><div class="highlight"><pre><span class="k">def</span> <span class="nf">_action_arg</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">action</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">action</span><span class="p">:</span>
+        <span class="k">return</span> <span class="s">&#39;-j </span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="n">action</span>
+    <span class="k">return</span> <span class="s">&#39;&#39;</span>
+</pre></div>
+</div>
+</dd>
+</dl>
+</li>
+<li><dl class="first docutils">
+<dt>_protocol_arg(self, protocol):</dt>
+<dd><ul class="first simple">
+<li><strong>説明：protocol指定ルール</strong></li>
+</ul>
+<p>コードは以下。:</p>
+<div class="last highlight-python"><div class="highlight"><pre><span class="k">def</span> <span class="nf">_protocol_arg</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">protocol</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">protocol</span><span class="p">:</span>
+        <span class="k">return</span> <span class="s">&#39;-p </span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="n">protocol</span>
+    <span class="k">return</span> <span class="s">&#39;&#39;</span>
+</pre></div>
+</div>
+</dd>
+</dl>
+</li>
+<li><dl class="first docutils">
+<dt>_port_arg(self, direction, protocol, port):</dt>
+<dd><ul class="first simple">
+<li><strong>説明：port指定</strong></li>
+</ul>
+<p>コードは以下。:</p>
+<div class="last highlight-python"><div class="highlight"><pre><span class="k">def</span> <span class="nf">_port_arg</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">direction</span><span class="p">,</span> <span class="n">protocol</span><span class="p">,</span> <span class="n">port</span><span class="p">):</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">protocol</span> <span class="ow">in</span> <span class="p">[</span><span class="s">&#39;udp&#39;</span><span class="p">,</span> <span class="s">&#39;tcp&#39;</span><span class="p">]</span> <span class="ow">and</span> <span class="n">port</span><span class="p">):</span>
+        <span class="k">return</span> <span class="s">&#39;&#39;</span>
+    <span class="k">return</span> <span class="s">&#39;--</span><span class="si">%s</span><span class="s"> </span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">direction</span><span class="p">,</span> <span class="n">port</span><span class="p">)</span>
+</pre></div>
+</div>
+</dd>
+</dl>
+</li>
+<li><dl class="first docutils">
+<dt>_ip_prefix_arg(self, direction, ip_prefix):</dt>
+<dd><ul class="first simple">
+<li><strong>説明：IP prefix指定</strong></li>
+</ul>
+<p>コードは以下。:</p>
+<div class="last highlight-python"><div class="highlight"><pre><span class="k">def</span> <span class="nf">_ip_prefix_arg</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">direction</span><span class="p">,</span> <span class="n">ip_prefix</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">ip_prefix</span><span class="p">:</span>
+        <span class="k">return</span> <span class="s">&#39;-</span><span class="si">%s</span><span class="s"> </span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">direction</span><span class="p">,</span> <span class="n">ip_prefix</span><span class="p">)</span>
+    <span class="k">return</span> <span class="s">&#39;&#39;</span>
+</pre></div>
+</div>
+</dd>
+</dl>
+</li>
 </ul>
 </div></blockquote>
 </div>
