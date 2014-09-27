@@ -1,0 +1,843 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml" xml:lang="ja" lang="ja">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  
+  <title>認証・認可系の処理 &mdash; neutron internal 0 ドキュメント</title>
+  
+    <link rel="stylesheet" href="_static/general.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+  
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    './',
+        VERSION:     '0',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <script type="text/javascript" src="_static/translations.js"></script>
+  <!-- Sticky footer -->
+  <!--[if  IE 8]>
+  <style type="text/css">
+    #wrap {display:table;}
+  </style>
+  <![endif]--> 
+</head>
+<body>
+<div id="wrapper">
+  
+  <!-- header -->
+  <div id="header">
+    <div id="projInfo">
+      <h1 id="title">
+        <a href="index.html">neutron internal</a>
+      </h1>
+      <p class="docdesc">neutron internal 0 ドキュメント</p>
+    </div>
+    <div id="headerNav">
+      <div id="searchbox">
+        <form name="search" action="search.html" method="get">
+          <fieldset class="search">
+            <input type="text" class="hint" name="q" />
+            <button class="button" title="検索" />検索</button>
+            <input type="hidden" name="check_keywords" value="yes" />
+            <input type="hidden" name="area" value="default" />
+          </fieldset>
+        </form>
+      </div>
+    </div>
+    <script type="text/javascript">$('#searchbox').show(0);</script>
+<div id="gnav">
+  <ul>
+    <li class="home"><p><a href="index.html" title="neutron internal">neutron internal</a></p></li>
+    <li class="doc"><p><a href="index.html" title="ドキュメント">ドキュメント</a></p></li>
+    <li class="modindex">
+      <p><a title="索引" href="genindex.html">索引</a></p>
+    </li>
+  </ul>
+</div>
+  </div>
+  <!-- /header -->
+  
+  
+  <!-- content -->
+  <div id="content">
+    <!-- current document area -->
+    <div id="document" class="left">
+  <div class="section" id="id1">
+<h1>認証・認可系の処理<a class="headerlink" href="#id1" title="このヘッドラインへのパーマリンク">¶</a></h1>
+</div>
+<div class="section" id="enforce">
+<h1>認可の処理(enforceメソッドの処理)<a class="headerlink" href="#enforce" title="このヘッドラインへのパーマリンク">¶</a></h1>
+<p>policy.jsonの記載内容にしたがって、認可の処理を行う。
+なお、api-paste.iniで指定するフックとして呼び出される処理ではないらしい。</p>
+<p>[ソース]
+neutron/policy.py</p>
+<p>スタックトレースは以下。:</p>
+<div class="highlight-python"><div class="highlight"><pre>&gt; /opt/stack/neutron/neutron/policy.py(367)enforce()
+-&gt; rule, target, credentials = _prepare_check(context, action, target)
+(Pdb) w
+  /usr/local/lib/python2.7/dist-packages/eventlet/greenpool.py(80)_spawn_n_impl()
+-&gt; func(*args, **kwargs)
+  /usr/local/lib/python2.7/dist-packages/eventlet/wsgi.py(594)process_request()
+-&gt; proto.__init__(sock, address, self)
+  /usr/lib/python2.7/SocketServer.py(638)__init__()
+-&gt; self.handle()
+  /usr/lib/python2.7/BaseHTTPServer.py(340)handle()
+-&gt; self.handle_one_request()
+  /usr/local/lib/python2.7/dist-packages/eventlet/wsgi.py(285)handle_one_request()
+-&gt; self.handle_one_response()
+  /usr/local/lib/python2.7/dist-packages/eventlet/wsgi.py(389)handle_one_response()
+-&gt; result = self.application(self.environ, start_response)
+  /usr/lib/python2.7/dist-packages/paste/urlmap.py(203)__call__()
+-&gt; return app(environ, start_response)
+  /usr/local/lib/python2.7/dist-packages/webob/dec.py(130)__call__()
+-&gt; resp = self.call_func(req, *args, **self.kwargs)
+  /usr/local/lib/python2.7/dist-packages/webob/dec.py(195)call_func()
+-&gt; return self.func(req, *args, **kwargs)
+  /opt/stack/neutron/neutron/openstack/common/middleware/request_id.py(38)__call__()
+-&gt; response = req.get_response(self.application)
+  /usr/local/lib/python2.7/dist-packages/webob/request.py(1320)send()
+-&gt; application, catch_exc_info=False)
+  /usr/local/lib/python2.7/dist-packages/webob/request.py(1284)call_application()
+-&gt; app_iter = application(self.environ, start_response)
+  /usr/local/lib/python2.7/dist-packages/webob/dec.py(130)__call__()
+-&gt; resp = self.call_func(req, *args, **self.kwargs)
+  /usr/local/lib/python2.7/dist-packages/webob/dec.py(195)call_func()
+-&gt; return self.func(req, *args, **kwargs)
+  /opt/stack/neutron/neutron/openstack/common/middleware/catch_errors.py(38)__call__()
+-&gt; response = req.get_response(self.application)
+  /usr/local/lib/python2.7/dist-packages/webob/request.py(1320)send()
+-&gt; application, catch_exc_info=False)
+  /usr/local/lib/python2.7/dist-packages/webob/request.py(1284)call_application()
+-&gt; app_iter = application(self.environ, start_response)
+  /opt/stack/python-keystoneclient/keystoneclient/middleware/auth_token.py(632)__call__()
+-&gt; return self.app(env, start_response)
+  /usr/local/lib/python2.7/dist-packages/webob/dec.py(144)__call__()
+-&gt; return resp(environ, start_response)
+  /usr/local/lib/python2.7/dist-packages/webob/dec.py(144)__call__()
+-&gt; return resp(environ, start_response)
+  /usr/lib/python2.7/dist-packages/routes/middleware.py(131)__call__()
+-&gt; response = self.app(environ, start_response)
+  /usr/local/lib/python2.7/dist-packages/webob/dec.py(144)__call__()
+-&gt; return resp(environ, start_response)
+  /usr/local/lib/python2.7/dist-packages/webob/dec.py(144)__call__()
+-&gt; return resp(environ, start_response)
+  /usr/lib/python2.7/dist-packages/routes/middleware.py(131)__call__()
+-&gt; response = self.app(environ, start_response)
+  /usr/local/lib/python2.7/dist-packages/webob/dec.py(144)__call__()
+-&gt; return resp(environ, start_response)
+  /usr/local/lib/python2.7/dist-packages/webob/dec.py(130)__call__()
+-&gt; resp = self.call_func(req, *args, **self.kwargs)
+  /usr/local/lib/python2.7/dist-packages/webob/dec.py(195)call_func()
+-&gt; return self.func(req, *args, **kwargs)
+  /opt/stack/neutron/neutron/api/v2/resource.py(87)resource()
+-&gt; result = method(request=request, **args)
+  /opt/stack/neutron/neutron/api/v2/base.py(328)show()
+-&gt; parent_id=parent_id),
+  /opt/stack/neutron/neutron/api/v2/base.py(288)_item()
+-&gt; policy.enforce(request.context, action, obj)
+&gt; /opt/stack/neutron/neutron/policy.py(367)enforce()
+-&gt; rule, target, credentials = _prepare_check(context, action, target)
+(Pdb)
+</pre></div>
+</div>
+<p>policy.enforceの呼び出し元は以下。:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="k">def</span> <span class="nf">create</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">request</span><span class="p">,</span> <span class="n">body</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Creates a new instance of the requested entity.&quot;&quot;&quot;</span>
+    <span class="n">parent_id</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_parent_id_name</span><span class="p">)</span>
+    <span class="n">notifier_api</span><span class="o">.</span><span class="n">notify</span><span class="p">(</span><span class="n">request</span><span class="o">.</span><span class="n">context</span><span class="p">,</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">_publisher_id</span><span class="p">,</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">_resource</span> <span class="o">+</span> <span class="s">&#39;.create.start&#39;</span><span class="p">,</span>
+                        <span class="n">notifier_api</span><span class="o">.</span><span class="n">CONF</span><span class="o">.</span><span class="n">default_notification_level</span><span class="p">,</span>
+                        <span class="n">body</span><span class="p">)</span>
+    <span class="n">body</span> <span class="o">=</span> <span class="n">Controller</span><span class="o">.</span><span class="n">prepare_request_body</span><span class="p">(</span><span class="n">request</span><span class="o">.</span><span class="n">context</span><span class="p">,</span> <span class="n">body</span><span class="p">,</span> <span class="bp">True</span><span class="p">,</span>
+                                           <span class="bp">self</span><span class="o">.</span><span class="n">_resource</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_attr_info</span><span class="p">,</span>
+                                           <span class="n">allow_bulk</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_allow_bulk</span><span class="p">)</span>
+    <span class="n">action</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_plugin_handlers</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">CREATE</span><span class="p">]</span>
+    <span class="c"># Check authz</span>
+    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_collection</span> <span class="ow">in</span> <span class="n">body</span><span class="p">:</span>
+        <span class="c"># Have to account for bulk create</span>
+        <span class="n">items</span> <span class="o">=</span> <span class="n">body</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_collection</span><span class="p">]</span>
+        <span class="n">deltas</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">bulk</span> <span class="o">=</span> <span class="bp">True</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">items</span> <span class="o">=</span> <span class="p">[</span><span class="n">body</span><span class="p">]</span>
+        <span class="n">bulk</span> <span class="o">=</span> <span class="bp">False</span>
+    <span class="c"># Ensure policy engine is initialized</span>
+    <span class="n">policy</span><span class="o">.</span><span class="n">init</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">items</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_validate_network_tenant_ownership</span><span class="p">(</span><span class="n">request</span><span class="p">,</span>
+                                                <span class="n">item</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_resource</span><span class="p">])</span>
+        <span class="n">policy</span><span class="o">.</span><span class="n">enforce</span><span class="p">(</span><span class="n">request</span><span class="o">.</span><span class="n">context</span><span class="p">,</span>
+                       <span class="n">action</span><span class="p">,</span>
+                       <span class="n">item</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_resource</span><span class="p">])</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">tenant_id</span> <span class="o">=</span> <span class="n">item</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_resource</span><span class="p">][</span><span class="s">&#39;tenant_id&#39;</span><span class="p">]</span>
+            <span class="n">count</span> <span class="o">=</span> <span class="n">quota</span><span class="o">.</span><span class="n">QUOTAS</span><span class="o">.</span><span class="n">count</span><span class="p">(</span><span class="n">request</span><span class="o">.</span><span class="n">context</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_resource</span><span class="p">,</span>
+                                       <span class="bp">self</span><span class="o">.</span><span class="n">_plugin</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_collection</span><span class="p">,</span>
+                                       <span class="n">tenant_id</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">bulk</span><span class="p">:</span>
+                <span class="n">delta</span> <span class="o">=</span> <span class="n">deltas</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">tenant_id</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span>
+                <span class="n">deltas</span><span class="p">[</span><span class="n">tenant_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">delta</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">delta</span> <span class="o">=</span> <span class="mi">1</span>
+            <span class="n">kwargs</span> <span class="o">=</span> <span class="p">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_resource</span><span class="p">:</span> <span class="n">count</span> <span class="o">+</span> <span class="n">delta</span><span class="p">}</span>
+        <span class="k">except</span> <span class="n">exceptions</span><span class="o">.</span><span class="n">QuotaResourceUnknown</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="c"># We don&#39;t want to quota this resource</span>
+            <span class="n">LOG</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">quota</span><span class="o">.</span><span class="n">QUOTAS</span><span class="o">.</span><span class="n">limit_check</span><span class="p">(</span><span class="n">request</span><span class="o">.</span><span class="n">context</span><span class="p">,</span>
+                                     <span class="n">item</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_resource</span><span class="p">][</span><span class="s">&#39;tenant_id&#39;</span><span class="p">],</span>
+                                     <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>enforceのコードは以下:</p>
+<div class="highlight-python"><div class="highlight"><pre>def enforce(context, action, target, plugin=None):
+    &quot;&quot;&quot;Verifies that the action is valid on the target in this context.
+
+    :param context: neutron context
+    :param action: string representing the action to be checked
+        this should be colon separated for clarity.
+    :param target: dictionary representing the object of the action
+        for object creation this should be a dictionary representing the
+        location of the object e.g. ``{&#39;project_id&#39;: context.project_id}``
+    :param plugin: currently unused and deprecated.
+        Kept for backward compatibility.
+
+    :raises neutron.exceptions.PolicyNotAuthorized: if verification fails.
+    &quot;&quot;&quot;
+
+    rule, target, credentials = _prepare_check(context, action, target)
+    result = policy.check(rule, target, credentials, action=action)
+    if not result:
+        LOG.debug(_(&quot;Failed policy check for &#39;%s&#39;&quot;), action)
+   raise exceptions.PolicyNotAuthorized(action=action)
+    return result
+</pre></div>
+</div>
+<p>引数の例は以下のとおり:</p>
+<div class="highlight-python"><div class="highlight"><pre>(Pdb) a
+context = &lt;neutron.context.Context object at 0x4f86f10&gt;
+action = get_network
+target = {&#39;status&#39;: u&#39;ACTIVE&#39;, &#39;subnets&#39;: [u&#39;aaad9a32-fc42-447d-9e88-29343d9e0ef8&#39;], &#39;name&#39;: u&#39;VirtualInterfacesTestJSON-2105663723-network&#39;, &#39;provider:physical_network&#39;: None, &#39; admin_state_up&#39;: True, &#39;tenant_id&#39;: u&#39;bd93671560894383a661d935d98ad6db&#39;, &#39;provider:network_type&#39;: u&#39;local&#39;, &#39;router:external&#39;: False, &#39;shared&#39;: False, &#39;id&#39;: u&#39;2e6dc779-12ad-4e52-aff9-c15401f2111b&#39;, &#39;provider:segmentation_id&#39;: None}
+plugin = None
+(Pdb)
+</pre></div>
+</div>
+<p>それが、_prepara_checkに渡されてゆく:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="k">def</span> <span class="nf">_prepare_check</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="n">action</span><span class="p">,</span> <span class="n">target</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Prepare rule, target, and credentials for the policy engine.&quot;&quot;&quot;</span>
+    <span class="c"># Compare with None to distinguish case in which target is {}</span>
+    <span class="k">if</span> <span class="n">target</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="n">target</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">match_rule</span> <span class="o">=</span> <span class="n">_build_match_rule</span><span class="p">(</span><span class="n">action</span><span class="p">,</span> <span class="n">target</span><span class="p">)</span>
+    <span class="n">credentials</span> <span class="o">=</span> <span class="n">context</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">match_rule</span><span class="p">,</span> <span class="n">target</span><span class="p">,</span> <span class="n">credentials</span>
+</pre></div>
+</div>
+<p>_build_match_rulehは以下。:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="k">def</span> <span class="nf">_build_match_rule</span><span class="p">(</span><span class="n">action</span><span class="p">,</span> <span class="n">target</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Create the rule to match for a given action.</span>
+
+<span class="sd">    The policy rule to be matched is built in the following way:</span>
+<span class="sd">    1) add entries for matching permission on objects</span>
+<span class="sd">    2) add an entry for the specific action (e.g.: create_network)</span>
+<span class="sd">    3) add an entry for attributes of a resource for which the action</span>
+<span class="sd">       is being executed (e.g.: create_network:shared)</span>
+<span class="sd">    4) add an entry for sub-attributes of a resource for which the</span>
+<span class="sd">       action is being executed</span>
+<span class="sd">       (e.g.: create_router:external_gateway_info:network_id)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">match_rule</span> <span class="o">=</span> <span class="n">policy</span><span class="o">.</span><span class="n">RuleCheck</span><span class="p">(</span><span class="s">&#39;rule&#39;</span><span class="p">,</span> <span class="n">action</span><span class="p">)</span>
+    <span class="n">resource</span><span class="p">,</span> <span class="n">is_write</span> <span class="o">=</span> <span class="n">get_resource_and_action</span><span class="p">(</span><span class="n">action</span><span class="p">)</span>
+    <span class="c"># Attribute-based checks shall not be enforced on GETs</span>
+    <span class="k">if</span> <span class="n">is_write</span><span class="p">:</span>
+        <span class="c"># assigning to variable with short name for improving readability</span>
+        <span class="n">res_map</span> <span class="o">=</span> <span class="n">attributes</span><span class="o">.</span><span class="n">RESOURCE_ATTRIBUTE_MAP</span>
+        <span class="k">if</span> <span class="n">resource</span> <span class="ow">in</span> <span class="n">res_map</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">attribute_name</span> <span class="ow">in</span> <span class="n">res_map</span><span class="p">[</span><span class="n">resource</span><span class="p">]:</span>
+                <span class="k">if</span> <span class="n">_is_attribute_explicitly_set</span><span class="p">(</span><span class="n">attribute_name</span><span class="p">,</span>
+                                                <span class="n">res_map</span><span class="p">[</span><span class="n">resource</span><span class="p">],</span>
+                                                <span class="n">target</span><span class="p">):</span>
+                    <span class="n">attribute</span> <span class="o">=</span> <span class="n">res_map</span><span class="p">[</span><span class="n">resource</span><span class="p">][</span><span class="n">attribute_name</span><span class="p">]</span>
+                    <span class="k">if</span> <span class="s">&#39;enforce_policy&#39;</span> <span class="ow">in</span> <span class="n">attribute</span><span class="p">:</span>
+                        <span class="n">attr_rule</span> <span class="o">=</span> <span class="n">policy</span><span class="o">.</span><span class="n">RuleCheck</span><span class="p">(</span><span class="s">&#39;rule&#39;</span><span class="p">,</span> <span class="s">&#39;</span><span class="si">%s</span><span class="s">:</span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span>
+                                                     <span class="p">(</span><span class="n">action</span><span class="p">,</span> <span class="n">attribute_name</span><span class="p">))</span>
+                        <span class="c"># Build match entries for sub-attributes, if present</span>
+                        <span class="n">validate</span> <span class="o">=</span> <span class="n">attribute</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&#39;validate&#39;</span><span class="p">)</span>
+                        <span class="k">if</span> <span class="p">(</span><span class="n">validate</span> <span class="ow">and</span> <span class="nb">any</span><span class="p">([</span><span class="n">k</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s">&#39;type:dict&#39;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">v</span>
+                                              <span class="k">for</span> <span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span> <span class="ow">in</span>
+                                              <span class="n">validate</span><span class="o">.</span><span class="n">iteritems</span><span class="p">()])):</span>
+                            <span class="n">attr_rule</span> <span class="o">=</span> <span class="n">policy</span><span class="o">.</span><span class="n">AndCheck</span><span class="p">(</span>
+                                <span class="p">[</span><span class="n">attr_rule</span><span class="p">,</span> <span class="n">_build_subattr_match_rule</span><span class="p">(</span>
+                                    <span class="n">attribute_name</span><span class="p">,</span> <span class="n">attribute</span><span class="p">,</span>
+                                    <span class="n">action</span><span class="p">,</span> <span class="n">target</span><span class="p">)])</span>
+                        <span class="n">match_rule</span> <span class="o">=</span> <span class="n">policy</span><span class="o">.</span><span class="n">AndCheck</span><span class="p">([</span><span class="n">match_rule</span><span class="p">,</span> <span class="n">attr_rule</span><span class="p">])</span>
+    <span class="k">return</span> <span class="n">match_rule</span>
+</pre></div>
+</div>
+<p>ちなみに、attributes.RESOURCE_ATTRIBUTE_MAPの値は以下。この定数自体はapi/v2/attributes.pyで定義されている。多分どこかで、各extentionの同名の定数が連結されている:</p>
+<div class="highlight-python"><div class="highlight"><pre>(Pdb) p attributes.RESOURCE_ATTRIBUTE_MAP
+{&#39;subnets&#39;: {&#39;ipv6_ra_mode&#39;: {&#39;default&#39;: &lt;object object at 0x7f4f701ae150&gt;, &#39;is_visible&#39;: True, &#39;validate&#39;: {&#39;type:values&#39;: [&#39;dhcpv6-stateful&#39;, &#39;dhcpv6-stateless&#39;, &#39;slaac&#39;]}, &#39;allow_put&#39;: True, &#39;allow_post&#39;: True}, &#39;allocation_pools&#39;: {&#39;default&#39;: &lt;object object at 0x7f4f701ae150&gt;, &#39;is_visible&#39;: True, &#39;validate&#39;: {&#39;type:ip_pools&#39;: None}, &#39;allow_put&#39;: False, &#39;allow_post&#39;: True}, &#39;host_routes&#39;: {&#39;is_visible&#39;: True, &#39;allow_put&#39;: True, &#39;allow_post&#39;: True, &#39;default&#39;: &lt;object object at 0x7f4f701ae150&gt;, &#39;convert_to&#39;: &lt;function convert_none_to_empty_list at 0x2d510c8&gt;, &#39;validate&#39;: {&#39;type:hostroutes&#39;: None}}, &#39;ipv6_address_mode&#39;: {&#39;default&#39;: &lt;object object at 0x7f4f701ae150&gt;, &#39;is_visible&#39;: True, &#39;validate&#39;: {&#39;type:values&#39;: [&#39;dhcpv6-stateful&#39;, &#39;dhcpv6-stateless&#39;, &#39;slaac&#39;]}, &#39;allow_put&#39;: True, &#39;allow_post&#39;: True}, &#39;cidr&#39;: {&#39;is_visible&#39;: True, &#39;validate&#39;: {&#39;type:subnet&#39;: None}, &#39;allow_put&#39;: False, &#39;allow_post&#39;: True}, &#39;id&#39;: {&#39;is_visible&#39;: True, &#39;validate&#39;: {&#39;type:uuid&#39;: None}, &#39;allow_put&#39;: False, &#39;primary_key&#39;: True, &#39;allow_post&#39;: False}, &#39;name&#39;: {&#39;default&#39;: &#39;&#39;, &#39;is_visible&#39;: True, &#39;validate&#39;: {&#39;type:string&#39;: None}, &#39;allow_put&#39;: True, &#39;allow_post&#39;: True}, &#39;enable_dhcp&#39;: {&#39;default&#39;: True, &#39;convert_to&#39;: &lt;function convert_to_boolean at 0x2d0de60&gt;, &#39;allow_put&#39;: True, &#39;allow_post&#39;: True, &#39;is_visible&#39;: True}, &#39;network_id&#39;: {&#39;required_by_policy&#39;: True, &#39;is_visible&#39;: True, &#39;validate&#39;: {&#39;type:uuid&#39;: None}, &#39;allow_put&#39;: False, &#39;allow_post&#39;: True}, &#39;tenant_id&#39;: {&#39;required_by_policy&#39;: True, &#39;is_visible&#39;: True, &#39;validate&#39;: {&#39;type:string&#39;: None}, &#39;allow_put&#39;: False, &#39;allow_post&#39;: True}, &#39;dns_nameservers&#39;: {&#39;is_visible&#39;: True, &#39;allow_put&#39;: True, &#39;allow_post&#39;: True, &#39;default&#39;: &lt;object object at 0x7f4f701ae150&gt;, &#39;convert_to&#39;: &lt;function convert_none_to_empty_list at 0x2d510c8&gt;, &#39;validate&#39;: {&#39;type:nameservers&#39;: None}}, &#39;gateway_ip&#39;: {&#39;default&#39;: &lt;object object at 0x7f4f701ae150&gt;, &#39;is_visible&#39;: True, &#39;validate&#39;: {&#39;type:ip_address_or_none&#39;: None}, &#39;allow_put&#39;: True, &#39;allow_post&#39;: True}, &#39;ip_version&#39;: {&#39;convert_to&#39;: &lt;function convert_to_int at 0x2d0ded8&gt;, &#39;validate&#39;: {&#39;type:values&#39;: [4, 6]}, &#39;allow_put&#39;: False, &#39;allow_post&#39;: True, &#39;is_visible&#39;: True}, &#39;shared&#39;: {&#39;is_visible&#39;: False, &#39;allow_put&#39;: False, &#39;allow_post&#39;: False, &#39;default&#39;: False, &#39;convert_to&#39;: &lt;function convert_to_boolean at 0x2d0de60&gt;, &#39;required_by_policy&#39;: True, &#39;enforce_policy&#39;: True}}, &#39;firewall_rules&#39;: {&#39;protocol&#39;: {&#39;is_visible&#39;: True, &#39;allow_put&#39;: True, &#39;allow_post&#39;: True, &#39;default&#39;: None, &#39;convert_to&#39;: &lt;function convert_protocol at 0x4ac9488&gt;, &#39;validate&#39;: {&#39;type:values&#39;: [None, &#39;tcp&#39;, &#39;udp&#39;, &#39;icmp&#39;]}}, &#39;description&#39;: {&#39;default&#39;: &#39;&#39;, &#39;is_visible&#39;: True, &#39;validate&#39;: {&#39;type:string&#39;: None}, &#39;allow_put&#39;: True, &#39;allow_post&#39;: True}, &#39;source_port&#39;: {&#39;is_visible&#39;: True, &#39;allow_put&#39;: True, &#39;allow_post&#39;: True, &#39;default&#39;: None, &#39;convert_to&#39;: &lt;function convert_port_to_string at 0x4ac9578&gt;, &#39;validate&#39;: {&#39;type:port_range&#39;: None}}, &#39;source_ip_address&#39;: {&#39;default&#39;: None, &#39;is_visible&#39;: True, &#39;validate&#39;: {&#39;type:ip_or_subnet_or_none&#39;: None}, &#39;allow_put&#39;: True, &#39;allow_post&#39;: True}, &#39;destination_ip_address&#39;: {&#39;default&#39;: None, &#39;is_visible&#39;: True, &#39;validate&#39;: {&#39;type:ip_or_subnet_or_none&#39;: None}, &#39;allow_put&#39;: True, &#39;allow_post&#39;: True}, &#39;firewall_policy_id&#39;: {&#39;is_visible&#39;: True, &#39;validate&#39;: {&#39;type:uuid_or_none&#39;: None}, &#39;allow_put&#39;: False, &#39;allow_post&#39;: False}, &#39;position&#39;: {&#39;default&#39;: None, &#39;is_visible&#39;: True, &#39;allow_put&#39;: False, &#39;allow_post&#39;: False}, &#39;destination_port&#39;: {&#39;is_visible&#39;: True, &#39;allow_put&#39;: True, &#39;allow_post&#39;: True, &#39;default&#39;: None, &#39;convert_to&#39;: &lt;function convert_port_to_string at 0x4ac9578&gt;, &#39;validate&#39;: {&#39;type:port_range&#39;: None}}, &#39;id&#39;: {&#39;is_visible&#39;: True, &#39;validate&#39;: {&#39;type:uuid&#39;: None}, &#39;allow_put&#39;: False, &#39;primary_key&#39;: True, &#39;allow_post&#39;: False}, &#39;name&#39;: {&#39;default&#39;: &#39;&#39;, &#39;is_visible&#39;: True, &#39;validate&#39;: {&#39;type:string&#39;: None}, &#39;allow_put&#39;: True, &#39;allow_post&#39;: True}, &#39;tenant_id&#39;: {&#39;required_by_policy&#39;: True, &#39;is_visible&#39;: True, &#39;allow_put&#39;: False, &#39;allow_post&#39;: True}, &#39;enabled&#39;: {&#39;default&#39;: True, &#39;convert_to&#39;: &lt;function convert_to_boolean at 0x2d0de60&gt;, &#39;allow_put&#39;: True, &#39;allow_post&#39;: True, &#39;is_visible&#39;: True}, &#39;action&#39;: {&#39;is_visible&#39;: True, &#39;allow_put&#39;: True, &#39;allow_post&#39;: True, &#39;default&#39;: &#39;deny&#39;, &#39;convert_to&#39;: &lt;function convert_action_to_case_insensitive at 0x4ac9500&gt;, &#39;validate&#39;: {&#39;type:values&#39;: [&#39;allow&#39;, &#39;deny&#39;]}}, &#39;ip_version&#39;: {&#39;is_visible&#39;: True, &#39;allow_put&#39;: True, &#39;allow_post&#39;: True, &#39;default&#39;: 4, &#39;convert_to&#39;: &lt;function convert_to_int at 0x2d0ded8&gt;, &#39;validate&#39;: {&#39;type:values&#39;: [4, 6]}}, &#39;shared&#39;: {&#39;is_visible&#39;: True, &#39;allow_put&#39;: True, &#39;allow_post&#39;: True, &#39;default&#39;: False, &#39;convert_to&#39;: &lt;function convert_to_boolean at 0x2d0de60&gt;, &#39;required_by_policy&#39;: True, &#39;enforce_policy&#39;: True}}, &#39;routers&#39;: {&#39;status&#39;: {&#39;is_visible&#39;: True, &#39;allow_put&#39;: False, &#39;allow_post&#39;: False}, &#39;external_gateway_info&#39;: {&#39;is_visible&#39;: True, &#39;allow_put&#39;: True, &#39;allow_post&#39;: True, &#39;default&#39;: None, &#39;enforce_policy&#39;: True, &#39;validate&#39;: {&#39;type:dict_or_nodata&#39;: {&#39;network_id&#39;: {&#39;type:uuid&#39;: None, &#39;required&#39;: True}, &#39;enable_snat&#39;: {&#39;convert_to&#39;: &lt;function convert_to_boolean at 0x2d0de60&gt;, &#39;required&#39;: False, &#39;type:boolean&#39;: None}}}}, &#39;name&#39;: {&#39;default&#39;: &#39;&#39;, &#39;is_visible&#39;: True, &#39;validate&#39;: {&#39;type:string&#39;: None}, &#39;allow_put&#39;: True, &#39;allow_post&#39;: True}, &#39;admin_state_up&#39;: {&#39;default&#39;: True, &#39;convert_to&#39;: &lt;function convert_to_boolean at 0x2d0de60&gt;, &#39;allow_put&#39;: True, &#39;allow_post&#39;: True, &#39;is_visible&#39;: True}, &#39;tenant_id&#39;: {&#39;required_by_policy&#39;: True, &#39;is_visible&#39;: True, &#39;validate&#39;: {&#39;type:string&#39;: None}, &#39;allow_put&#39;: False, &#39;allow_post&#39;: True}, &#39;routes&#39;: {&#39;is_visible&#39;: True, &#39;allow_put&#39;: True, &#39;allow_post&#39;: False, &#39;default&#39;: &lt;object object at 0x7f4f701ae150&gt;, &#39;convert_to&#39;: &lt;function convert_none_to_empty_list at 0x2d510c8&gt;, &#39;validate&#39;: {&#39;type:hostroutes&#39;: None}}, &#39;id&#39;: {&#39;is_visible&#39;: True, &#39;validate&#39;: {&#39;type:uuid&#39;: None}, &#39;allow_put&#39;: False, &#39;primary_key&#39;: True, &#39;allow_post&#39;: False}}, &#39;quotas&#39;: {}, &#39;security_group_rules&#39;: {&#39;remote_group_id&#39;: {&#39;default&#39;: None, &#39;is_visible&#39;: True, &#39;allow_put&#39;: False, &#39;allow_post&#39;: True}, &#39;direction&#39;: {&#39;is_visible&#39;: True, &#39;validate&#39;: {&#39;type:values&#39;: [&#39;ingress&#39;, &#39;egress&#39;]}, &#39;allow_put&#39;: True, &#39;allow_post&#39;: True}, &#39;remote_ip_prefix&#39;: {&#39;default&#39;: None, &#39;is_visible&#39;: True, &#39;allow_put&#39;: False, &#39;allow_post&#39;: True, &#39;convert_to&#39;: &lt;function convert_ip_prefix_to_cidr at 0x4af4050&gt;}, &#39;protocol&#39;: {&#39;default&#39;: None, &#39;is_visible&#39;: True, &#39;allow_put&#39;: False, &#39;allow_post&#39;: True, &#39;convert_to&#39;: &lt;function convert_protocol at 0x4aede60&gt;}, &#39;tenant_id&#39;: {&#39;required_by_policy&#39;: True, &#39;is_visible&#39;: True, &#39;allow_put&#39;: False, &#39;allow_post&#39;: True}, &#39;ethertype&#39;: {&#39;is_visible&#39;: True, &#39;allow_put&#39;: False, &#39;allow_post&#39;: True, &#39;default&#39;: &#39;IPv4&#39;, &#39;convert_to&#39;: &lt;function convert_ethertype_to_case_insensitive at 0x4af4758&gt;, &#39;validate&#39;: {&#39;type:values&#39;: [&#39;IPv4&#39;, &#39;IPv6&#39;]}}, &#39;port_range_min&#39;: {&#39;default&#39;: None, &#39;convert_to&#39;: &lt;function convert_validate_port_value at 0x4af4d70&gt;, &#39;allow_put&#39;: False, &#39;allow_post&#39;: True, &#39;is_visible&#39;: True}, &#39;port_range_max&#39;: {&#39;default&#39;: None, &#39;convert_to&#39;: &lt;function convert_validate_port_value at 0x4af4d70&gt;, &#39;allow_put&#39;: False, &#39;allow_post&#39;: True, &#39;is_visible&#39;: True}, &#39;id&#39;: {&#39;is_visible&#39;: True, &#39;validate&#39;: {&#39;type:uuid&#39;: None}, &#39;allow_put&#39;: False, &#39;primary_key&#39;: True, &#39;allow_post&#39;: False}, &#39;security_group_id&#39;: {&#39;required_by_policy&#39;: True, &#39;is_visible&#39;: True, &#39;allow_put&#39;: False, &#39;allow_post&#39;: True}}, &#39;ports&#39;: {&#39;status&#39;: {&#39;is_visible&#39;: True, &#39;allow_put&#39;: False, &#39;allow_post&#39;: False}, &#39;extra_dhcp_opts&#39;: {&#39;default&#39;: None, &#39;is_visible&#39;: True, &#39;validate&#39;: {&#39;type:list_of_dict_or_none&#39;: {&#39;opt_value&#39;: {&#39;type:not_empty_string_or_none&#39;: None, &#39;required&#39;: True}, &#39;opt_name&#39;: {&#39;type:not_empty_string&#39;: None, &#39;required&#39;: True}, &#39;id&#39;: {&#39;type:uuid&#39;: None, &#39;required&#39;: False}}}, &#39;allow_put&#39;: True, &#39;allow_post&#39;: True}, &#39;binding:host_id&#39;: {&#39;default&#39;: &lt;object object at 0x7f4f701ae150&gt;, &#39;is_visible&#39;: True, &#39;allow_put&#39;: True, &#39;allow_post&#39;: True, &#39;enforce_policy&#39;: True}, &#39;name&#39;: {&#39;default&#39;: &#39;&#39;, &#39;is_visible&#39;: True, &#39;validate&#39;: {&#39;type:string&#39;: None}, &#39;allow_put&#39;: True, &#39;allow_post&#39;: True}, &#39;allowed_address_pairs&#39;: {&#39;is_visible&#39;: True, &#39;allow_put&#39;: True, &#39;allow_post&#39;: True, &#39;default&#39;: &lt;object object at 0x7f4f701ae150&gt;, &#39;convert_list_to&#39;: &lt;function convert_kvp_list_to_dict at 0x2d51050&gt;, &#39;enforce_policy&#39;: True, &#39;validate&#39;: {&#39;type:validate_allowed_address_pairs&#39;: None}}, &#39;admin_state_up&#39;: {&#39;default&#39;: True, &#39;convert_to&#39;: &lt;function convert_to_boolean at 0x2d0de60&gt;, &#39;allow_put&#39;: True, &#39;allow_post&#39;: True, &#39;is_visible&#39;: True}, &#39;network_id&#39;: {&#39;required_by_policy&#39;: True, &#39;is_visible&#39;: True, &#39;validate&#39;: {&#39;type:uuid&#39;: None}, &#39;allow_put&#39;: False, &#39;allow_post&#39;: True}, &#39;tenant_id&#39;: {&#39;required_by_policy&#39;: True, &#39;is_visible&#39;: True, &#39;validate&#39;: {&#39;type:string&#39;: None}, &#39;allow_put&#39;: False, &#39;allow_post&#39;: True}, &#39;binding:vif_details&#39;: {&#39;default&#39;: &lt;object object at 0x7f4f701ae150&gt;, &#39;enforce_policy&#39;: True, &#39;allow_put&#39;: False, &#39;allow_post&#39;: False, &#39;is_visible&#39;: True}, &#39;binding:vnic_type&#39;: {&#39;is_visible&#39;: True, &#39;allow_put&#39;: True, &#39;allow_post&#39;: True, &#39;default&#39;: &#39;normal&#39;, &#39;enforce_policy&#39;: True, &#39;validate&#39;: {&#39;type:values&#39;: [&#39;normal&#39;, &#39;direct&#39;, &#39;macvtap&#39;]}}, &#39;binding:vif_type&#39;: {&#39;default&#39;: &lt;object object at 0x7f4f701ae150&gt;, &#39;enforce_policy&#39;: True, &#39;allow_put&#39;: False, &#39;allow_post&#39;: False, &#39;is_visible&#39;: True}, &#39;device_owner&#39;: {&#39;default&#39;: &#39;&#39;, &#39;is_visible&#39;: True, &#39;validate&#39;: {&#39;type:string&#39;: None}, &#39;allow_put&#39;: True, &#39;allow_post&#39;: True}, &#39;mac_address&#39;: {&#39;is_visible&#39;: True, &#39;allow_put&#39;: False, &#39;allow_post&#39;: True, &#39;default&#39;: &lt;object object at 0x7f4f701ae150&gt;, &#39;enforce_policy&#39;: True, &#39;validate&#39;: {&#39;type:mac_address&#39;: None}}, &#39;binding:profile&#39;: {&#39;is_visible&#39;: True, &#39;allow_put&#39;: True, &#39;allow_post&#39;: True, &#39;default&#39;: &lt;object object at 0x7f4f701ae150&gt;, &#39;enforce_policy&#39;: True, &#39;validate&#39;: {&#39;type:dict_or_none&#39;: None}}, &#39;fixed_ips&#39;: {&#39;is_visible&#39;: True, &#39;allow_put&#39;: True, &#39;allow_post&#39;: True, &#39;default&#39;: &lt;object object at 0x7f4f701ae150&gt;, &#39;convert_list_to&#39;: &lt;function convert_kvp_list_to_dict at 0x2d51050&gt;, &#39;enforce_policy&#39;: True, &#39;validate&#39;: {&#39;type:fixed_ips&#39;: None}}, &#39;id&#39;: {&#39;is_visible&#39;: True, &#39;validate&#39;: {&#39;type:uuid&#39;: None}, &#39;allow_put&#39;: False, &#39;primary_key&#39;: True, &#39;allow_post&#39;: False}, &#39;security_groups&#39;: {&#39;default&#39;: &lt;object object at 0x7f4f701ae150&gt;, &#39;is_visible&#39;: True, &#39;allow_put&#39;: True, &#39;allow_post&#39;: True, &#39;convert_to&#39;: &lt;function convert_to_uuid_list_or_none at 0x4af4cf8&gt;}, &#39;device_id&#39;: {&#39;default&#39;: &#39;&#39;, &#39;is_visible&#39;: True, &#39;validate&#39;: {&#39;type:string&#39;: None}, &#39;allow_put&#39;: True, &#39;allow_post&#39;: True}}, &#39;agents&#39;: {&#39;description&#39;: {&#39;is_visible&#39;: True, &#39;validate&#39;: {&#39;type:string&#39;: None}, &#39;allow_put&#39;: True, &#39;allow_post&#39;: False}, &#39;alive&#39;: {&#39;is_visible&#39;: True, &#39;allow_put&#39;: False, &#39;allow_post&#39;: False}, &#39;topic&#39;: {&#39;is_visible&#39;: True, &#39;allow_put&#39;: False, &#39;allow_post&#39;: False}, &#39;host&#39;: {&#39;is_visible&#39;: True, &#39;allow_put&#39;: False, &#39;allow_post&#39;: False}, &#39;started_at&#39;: {&#39;is_visible&#39;: True, &#39;allow_put&#39;: False, &#39;allow_post&#39;: False}, &#39;id&#39;: {&#39;is_visible&#39;: True, &#39;validate&#39;: {&#39;type:uuid&#39;: None}, &#39;allow_put&#39;: False, &#39;allow_post&#39;: False}, &#39;binary&#39;: {&#39;is_visible&#39;: True, &#39;allow_put&#39;: False, &#39;allow_post&#39;: False}, &#39;admin_state_up&#39;: {&#39;convert_to&#39;: &lt;function convert_to_boolean at 0x2d0de60&gt;, &#39;allow_put&#39;: True, &#39;allow_post&#39;: False, &#39;is_visible&#39;: True}, &#39;heartbeat_timestamp&#39;: {&#39;is_visible&#39;: True, &#39;allow_put&#39;: False, &#39;allow_post&#39;: False}, &#39;agent_type&#39;: {&#39;is_visible&#39;: True, &#39;allow_put&#39;: False, &#39;allow_post&#39;: False}, &#39;created_at&#39;: {&#39;is_visible&#39;: True, &#39;allow_put&#39;: False, &#39;allow_post&#39;: False}, &#39;configurations&#39;: {&#39;is_visible&#39;: True, &#39;allow_put&#39;: False, &#39;allow_post&#39;: False}}, &#39;firewall_policies&#39;: {&#39;description&#39;: {&#39;default&#39;: &#39;&#39;, &#39;is_visible&#39;: True, &#39;validate&#39;: {&#39;type:string&#39;: None}, &#39;allow_put&#39;: True, &#39;allow_post&#39;: True}, &#39;firewall_rules&#39;: {&#39;is_visible&#39;: True, &#39;allow_put&#39;: True, &#39;allow_post&#39;: True, &#39;default&#39;: None, &#39;convert_to&#39;: &lt;function convert_none_to_empty_list at 0x2d510c8&gt;, &#39;validate&#39;: {&#39;type:uuid_list&#39;: None}}, &#39;tenant_id&#39;: {&#39;required_by_policy&#39;: True, &#39;is_visible&#39;: True, &#39;allow_put&#39;: False, &#39;allow_post&#39;: True}, &#39;audited&#39;: {&#39;default&#39;: False, &#39;convert_to&#39;: &lt;function convert_to_boolean at 0x2d0de60&gt;, &#39;allow_put&#39;: True, &#39;allow_post&#39;: True, &#39;is_visible&#39;: True}, &#39;shared&#39;: {&#39;is_visible&#39;: True, &#39;allow_put&#39;: True, &#39;allow_post&#39;: True, &#39;default&#39;: False, &#39;convert_to&#39;: &lt;function convert_to_boolean at 0x2d0de60&gt;, &#39;required_by_policy&#39;: True, &#39;enforce_policy&#39;: True}, &#39;id&#39;: {&#39;is_visible&#39;: True, &#39;validate&#39;: {&#39;type:uuid&#39;: None}, &#39;allow_put&#39;: False, &#39;primary_key&#39;: True, &#39;allow_post&#39;: False}, &#39;name&#39;: {&#39;default&#39;: &#39;&#39;, &#39;is_visible&#39;: True, &#39;validate&#39;: {&#39;type:string&#39;: None}, &#39;allow_put&#39;: True, &#39;allow_post&#39;: True}}, &#39;firewalls&#39;: {&#39;status&#39;: {&#39;is_visible&#39;: True, &#39;allow_put&#39;: False, &#39;allow_post&#39;: False}, &#39;firewall_policy_id&#39;: {&#39;is_visible&#39;: True, &#39;validate&#39;: {&#39;type:uuid_or_none&#39;: None}, &#39;allow_put&#39;: True, &#39;allow_post&#39;: True}, &#39;name&#39;: {&#39;default&#39;: &#39;&#39;, &#39;is_visible&#39;: True, &#39;validate&#39;: {&#39;type:string&#39;: None}, &#39;allow_put&#39;: True, &#39;allow_post&#39;: True}, &#39;admin_state_up&#39;: {&#39;default&#39;: True, &#39;convert_to&#39;: &lt;function convert_to_boolean at 0x2d0de60&gt;, &#39;allow_put&#39;: True, &#39;allow_post&#39;: True, &#39;is_visible&#39;: True}, &#39;shared&#39;: {&#39;is_visible&#39;: False, &#39;allow_put&#39;: True, &#39;allow_post&#39;: True, &#39;default&#39;: False, &#39;convert_to&#39;: &lt;function convert_to_boolean at 0x2d0de60&gt;, &#39;required_by_policy&#39;: True, &#39;enforce_policy&#39;: True}, &#39;tenant_id&#39;: {&#39;required_by_policy&#39;: True, &#39;is_visible&#39;: True, &#39;allow_put&#39;: False, &#39;allow_post&#39;: True}, &#39;id&#39;: {&#39;is_visible&#39;: True, &#39;validate&#39;: {&#39;type:uuid&#39;: None}, &#39;allow_put&#39;: False, &#39;primary_key&#39;: True, &#39;allow_post&#39;: False}, &#39;description&#39;: {&#39;default&#39;: &#39;&#39;, &#39;is_visible&#39;: True, &#39;validate&#39;: {&#39;type:string&#39;: None}, &#39;allow_put&#39;: True, &#39;allow_post&#39;: True}}, &#39;networks&#39;: {&#39;status&#39;: {&#39;is_visible&#39;: True, &#39;allow_put&#39;: False, &#39;allow_post&#39;: False}, &#39;subnets&#39;: {&#39;default&#39;: [], &#39;is_visible&#39;: True, &#39;allow_put&#39;: False, &#39;allow_post&#39;: False}, &#39;name&#39;: {&#39;default&#39;: &#39;&#39;, &#39;is_visible&#39;: True, &#39;validate&#39;: {&#39;type:string&#39;: None}, &#39;allow_put&#39;: True, &#39;allow_post&#39;: True}, &#39;provider:physical_network&#39;: {&#39;is_visible&#39;: True, &#39;allow_put&#39;: True, &#39;allow_post&#39;: True, &#39;default&#39;: &lt;object object at 0x7f4f701ae150&gt;, &#39;enforce_policy&#39;: True, &#39;validate&#39;: {&#39;type:string&#39;: None}}, &#39;admin_state_up&#39;: {&#39;default&#39;: True, &#39;convert_to&#39;: &lt;function convert_to_boolean at 0x2d0de60&gt;, &#39;allow_put&#39;: True, &#39;allow_post&#39;: True, &#39;is_visible&#39;: True}, &#39;tenant_id&#39;: {&#39;required_by_policy&#39;: True, &#39;is_visible&#39;: True, &#39;validate&#39;: {&#39;type:string&#39;: None}, &#39;allow_put&#39;: False, &#39;allow_post&#39;: True}, &#39;segments&#39;: {&#39;is_visible&#39;: True, &#39;allow_put&#39;: True, &#39;allow_post&#39;: True, &#39;default&#39;: &lt;object object at 0x7f4f701ae150&gt;, &#39;convert_list_to&#39;: &lt;function convert_kvp_list_to_dict at 0x2d51050&gt;, &#39;enforce_policy&#39;: True, &#39;validate&#39;: {&#39;type:convert_segments&#39;: None}}, &#39;provider:network_type&#39;: {&#39;is_visible&#39;: True, &#39;allow_put&#39;: True, &#39;allow_post&#39;: True, &#39;default&#39;: &lt;object object at 0x7f4f701ae150&gt;, &#39;enforce_policy&#39;: True, &#39;validate&#39;: {&#39;type:string&#39;: None}}, &#39;router:external&#39;: {&#39;is_visible&#39;: True, &#39;allow_put&#39;: True, &#39;allow_post&#39;: True, &#39;default&#39;: &lt;object object at 0x7f4f701ae150&gt;, &#39;convert_to&#39;: &lt;function convert_to_boolean at 0x2d0de60&gt;, &#39;required_by_policy&#39;: True, &#39;enforce_policy&#39;: True}, &#39;shared&#39;: {&#39;is_visible&#39;: True, &#39;allow_put&#39;: True, &#39;allow_post&#39;: True, &#39;default&#39;: False, &#39;convert_to&#39;: &lt;function convert_to_boolean at 0x2d0de60&gt;, &#39;required_by_policy&#39;: True, &#39;enforce_policy&#39;: True}, &#39;id&#39;: {&#39;is_visible&#39;: True, &#39;validate&#39;: {&#39;type:uuid&#39;: None}, &#39;allow_put&#39;: False, &#39;primary_key&#39;: True, &#39;allow_post&#39;: False}, &#39;provider:segmentation_id&#39;: {&#39;is_visible&#39;: True, &#39;allow_put&#39;: True, &#39;allow_post&#39;: True, &#39;default&#39;: &lt;object object at 0x7f4f701ae150&gt;, &#39;convert_to&#39;: &lt;type &#39;int&#39;&gt;, &#39;enforce_policy&#39;: True}}, &#39;security_groups&#39;: {&#39;tenant_id&#39;: {&#39;required_by_policy&#39;: True, &#39;is_visible&#39;: True, &#39;allow_put&#39;: False, &#39;allow_post&#39;: True}, &#39;description&#39;: {&#39;default&#39;: &#39;&#39;, &#39;is_visible&#39;: True, &#39;allow_put&#39;: True, &#39;allow_post&#39;: True}, &#39;id&#39;: {&#39;is_visible&#39;: True, &#39;validate&#39;: {&#39;type:uuid&#39;: None}, &#39;allow_put&#39;: False, &#39;primary_key&#39;: True, &#39;allow_post&#39;: False}, &#39;security_group_rules&#39;: {&#39;is_visible&#39;: True, &#39;allow_put&#39;: False, &#39;allow_post&#39;: False}, &#39;name&#39;: {&#39;default&#39;: &#39;&#39;, &#39;is_visible&#39;: True, &#39;validate&#39;: {&#39;type:name_not_default&#39;: None}, &#39;allow_put&#39;: True, &#39;allow_post&#39;: True}}, &#39;floatingips&#39;: {&#39;floating_network_id&#39;: {&#39;is_visible&#39;: True, &#39;validate&#39;: {&#39;type:uuid&#39;: None}, &#39;allow_put&#39;: False, &#39;allow_post&#39;: True}, &#39;router_id&#39;: {&#39;default&#39;: None, &#39;is_visible&#39;: True, &#39;validate&#39;: {&#39;type:uuid_or_none&#39;: None}, &#39;allow_put&#39;: False, &#39;allow_post&#39;: False}, &#39;fixed_ip_address&#39;: {&#39;default&#39;: None, &#39;is_visible&#39;: True, &#39;validate&#39;: {&#39;type:ip_address_or_none&#39;: None}, &#39;allow_put&#39;: True, &#39;allow_post&#39;: True}, &#39;floating_ip_address&#39;: {&#39;is_visible&#39;: True, &#39;validate&#39;: {&#39;type:ip_address_or_none&#39;: None}, &#39;allow_put&#39;: False, &#39;allow_post&#39;: False}, &#39;tenant_id&#39;: {&#39;required_by_policy&#39;: True, &#39;is_visible&#39;: True, &#39;validate&#39;: {&#39;type:string&#39;: None}, &#39;allow_put&#39;: False, &#39;allow_post&#39;: True}, &#39;status&#39;: {&#39;is_visible&#39;: True, &#39;allow_put&#39;: False, &#39;allow_post&#39;: False}, &#39;port_id&#39;: {&#39;is_visible&#39;: True, &#39;allow_put&#39;: True, &#39;allow_post&#39;: True, &#39;default&#39;: None, &#39;required_by_policy&#39;: True, &#39;validate&#39;: {&#39;type:uuid_or_none&#39;: None}}, &#39;id&#39;: {&#39;is_visible&#39;: True, &#39;validate&#39;: {&#39;type:uuid&#39;: None}, &#39;allow_put&#39;: False, &#39;primary_key&#39;: True, &#39;allow_post&#39;: False}}}
+(Pdb)
+</pre></div>
+</div>
+<p>クレデンシャル情報は以下。:</p>
+<div class="highlight-python"><div class="highlight"><pre>(Pdb) p credentials
+{&#39;project_name&#39;: u&#39;admin&#39;, &#39;tenant_name&#39;: u&#39;admin&#39;, &#39;timestamp&#39;: &#39;2014-09-27 16:26:40.515133&#39;, &#39;is_admin&#39;: True, &#39;user&#39;: u&#39;b97cef0b004f4e6fb6162b13045e1c13&#39;, &#39;tenant&#39;: u&#39;bbf770e7cc7d499fba61abc002be7693&#39;, &#39;user_id&#39;: u&#39;b97cef0b004f4e6fb6162b13045e1c13&#39;, &#39;roles&#39;: [u&#39;_member_&#39;, u&#39;admin&#39;, u&#39;heat_stack_owner&#39;], &#39;tenant_id&#39;: u&#39;bbf770e7cc7d499fba61abc002be7693&#39;, &#39;read_deleted&#39;: &#39;no&#39;, &#39;request_id&#39;: &#39;req-5cf3dea3-c2bb-4b4c-8983-c7ca3b04cd41&#39;, &#39;project_id&#39;: u&#39;bbf770e7cc7d499fba61abc002be7693&#39;, &#39;user_name&#39;: u&#39;admin&#39;}
+(Pdb)
+</pre></div>
+</div>
+<p>以降、enforceメソッドの中のpolicy.check(rule, target, credentials, action=action)に進んでゆく[openstack/common/policy.py]。:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="k">def</span> <span class="nf">check</span><span class="p">(</span><span class="n">rule</span><span class="p">,</span> <span class="n">target</span><span class="p">,</span> <span class="n">creds</span><span class="p">,</span> <span class="n">exc</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Checks authorization of a rule against the target and credentials.</span>
+
+<span class="sd">    :param rule: The rule to evaluate.</span>
+<span class="sd">    :param target: As much information about the object being operated</span>
+<span class="sd">                   on as possible, as a dictionary.</span>
+<span class="sd">    :param creds: As much information about the user performing the</span>
+<span class="sd">                  action as possible, as a dictionary.</span>
+<span class="sd">    :param exc: Class of the exception to raise if the check fails.</span>
+<span class="sd">                Any remaining arguments passed to check() (both</span>
+<span class="sd">                positional and keyword arguments) will be passed to</span>
+<span class="sd">                the exception class.  If exc is not provided, returns</span>
+<span class="sd">                False.</span>
+
+<span class="sd">    :return: Returns False if the policy does not allow the action and</span>
+<span class="sd">             exc is not provided; otherwise, returns a value that</span>
+<span class="sd">             evaluates to True.  Note: for rules using the &quot;case&quot;</span>
+<span class="sd">             expression, this True value will be the specified string</span>
+<span class="sd">             from the expression.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c"># Allow the rule to be a Check tree</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">rule</span><span class="p">,</span> <span class="n">BaseCheck</span><span class="p">):</span>
+       <span class="n">result</span> <span class="o">=</span> <span class="n">rule</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">creds</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="ow">not</span> <span class="n">_rules</span><span class="p">:</span>
+        <span class="c"># No rules to reference means we&#39;re going to fail closed</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="bp">False</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="c"># Evaluate the rule</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="n">_rules</span><span class="p">[</span><span class="n">rule</span><span class="p">](</span><span class="n">target</span><span class="p">,</span> <span class="n">creds</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+            <span class="c"># If the rule doesn&#39;t exist, fail closed</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="bp">False</span>
+
+    <span class="c"># If it is False, raise the exception if requested</span>
+    <span class="k">if</span> <span class="n">exc</span> <span class="ow">and</span> <span class="n">result</span> <span class="ow">is</span> <span class="bp">False</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">exc</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">result</span>
+</pre></div>
+</div>
+<p>&#8220;result = rule(target, creds)&#8221;にすすんでゆく。_rulesはpolicy.jsonで定義したruleが定義されている:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="k">class</span> <span class="nc">RuleCheck</span><span class="p">(</span><span class="n">Check</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">target</span><span class="p">,</span> <span class="n">creds</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Recursively checks credentials based on the defined rules.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">_rules</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">match</span><span class="p">](</span><span class="n">target</span><span class="p">,</span> <span class="n">creds</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+            <span class="c"># We don&#39;t have any matching rule; fail closed</span>
+            <span class="k">return</span> <span class="bp">False</span>
+</pre></div>
+</div>
+<p>create_networkのケースでは以下の要になっていて:</p>
+<div class="highlight-python"><div class="highlight"><pre>(Pdb) p self.match
+&#39;create_network&#39;
+(Pdb) p _rules[self.match]
+&lt;neutron.openstack.common.policy.TrueCheck object at 0x50dd250&gt;
+(Pdb)
+</pre></div>
+</div>
+<p>単にTrueCheckが行われる:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="k">class</span> <span class="nc">TrueCheck</span><span class="p">(</span><span class="n">BaseCheck</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    A policy check that always returns True (allow).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return a string representation of this check.&quot;&quot;&quot;</span>
+
+        <span class="k">return</span> <span class="s">&quot;@&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">target</span><span class="p">,</span> <span class="n">cred</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Check the policy.&quot;&quot;&quot;</span>
+
+        <span class="k">return</span> <span class="bp">True</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="id2">
+<h1>認可の処理(リソースの表示編)<a class="headerlink" href="#id2" title="このヘッドラインへのパーマリンク">¶</a></h1>
+<p>[ソース]
+neutron/api/v2/base.py</p>
+<p>[クラス]
+Controller</p>
+<p>showのソースはいかになっていて、_view以降でGETで見せるデータのフィルタを
+行っている:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="k">def</span> <span class="nf">show</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">request</span><span class="p">,</span> <span class="nb">id</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+     <span class="sd">&quot;&quot;&quot;Returns detailed information about the requested entity.&quot;&quot;&quot;</span>
+     <span class="k">try</span><span class="p">:</span>
+         <span class="c"># NOTE(salvatore-orlando): The following ensures that fields</span>
+         <span class="c"># which are needed for authZ policy validation are not stripped</span>
+         <span class="c"># away by the plugin before returning.</span>
+         <span class="n">field_list</span><span class="p">,</span> <span class="n">added_fields</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_do_field_list</span><span class="p">(</span>
+             <span class="n">api_common</span><span class="o">.</span><span class="n">list_args</span><span class="p">(</span><span class="n">request</span><span class="p">,</span> <span class="s">&quot;fields&quot;</span><span class="p">))</span>
+         <span class="n">parent_id</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_parent_id_name</span><span class="p">)</span>
+         <span class="c"># Ensure policy engine is initialized</span>
+         <span class="n">policy</span><span class="o">.</span><span class="n">init</span><span class="p">()</span>
+         <span class="k">return</span> <span class="p">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_resource</span><span class="p">:</span>
+                 <span class="bp">self</span><span class="o">.</span><span class="n">_view</span><span class="p">(</span><span class="n">request</span><span class="o">.</span><span class="n">context</span><span class="p">,</span>
+                            <span class="bp">self</span><span class="o">.</span><span class="n">_item</span><span class="p">(</span><span class="n">request</span><span class="p">,</span>
+                                       <span class="nb">id</span><span class="p">,</span>
+                                       <span class="n">do_authz</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span>
+                                       <span class="n">field_list</span><span class="o">=</span><span class="n">field_list</span><span class="p">,</span>
+                                       <span class="n">parent_id</span><span class="o">=</span><span class="n">parent_id</span><span class="p">),</span>
+                            <span class="n">fields_to_strip</span><span class="o">=</span><span class="n">added_fields</span><span class="p">)}</span>
+     <span class="k">except</span> <span class="n">exceptions</span><span class="o">.</span><span class="n">PolicyNotAuthorized</span><span class="p">:</span>
+         <span class="c"># To avoid giving away information, pretend that it</span>
+         <span class="c"># doesn&#39;t exist</span>
+         <span class="n">msg</span> <span class="o">=</span> <span class="n">_</span><span class="p">(</span><span class="s">&#39;The resource could not be found.&#39;</span><span class="p">)</span>
+         <span class="k">raise</span> <span class="n">webob</span><span class="o">.</span><span class="n">exc</span><span class="o">.</span><span class="n">HTTPNotFound</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>以下のメソッドでpolcyチェックを実施:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="k">def</span> <span class="nf">_exclude_attributes_by_policy</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">context</span><span class="p">,</span> <span class="n">data</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Identifies attributes to exclude according to authZ policies.</span>
+
+<span class="sd">    Return a list of attribute names which should be stripped from the</span>
+<span class="sd">    response returned to the user because the user is not authorized</span>
+<span class="sd">    to see them.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">attributes_to_exclude</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">attr_name</span> <span class="ow">in</span> <span class="n">data</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+        <span class="n">attr_data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_attr_info</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">attr_name</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">attr_data</span> <span class="ow">and</span> <span class="n">attr_data</span><span class="p">[</span><span class="s">&#39;is_visible&#39;</span><span class="p">]:</span>
+            <span class="k">if</span> <span class="n">policy</span><span class="o">.</span><span class="n">check</span><span class="p">(</span>
+                <span class="n">context</span><span class="p">,</span>
+                <span class="s">&#39;</span><span class="si">%s</span><span class="s">:</span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_plugin_handlers</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">SHOW</span><span class="p">],</span> <span class="n">attr_name</span><span class="p">),</span>
+                <span class="bp">None</span><span class="p">,</span>
+                <span class="n">might_not_exist</span><span class="o">=</span><span class="bp">True</span><span class="p">):</span>
+                <span class="c"># this attribute is visible, check next one</span>
+                <span class="k">continue</span>
+        <span class="c"># if the code reaches this point then either the policy check</span>
+        <span class="c"># failed or the attribute was not visible in the first place</span>
+        <span class="n">attributes_to_exclude</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">attr_name</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">attributes_to_exclude</span>
+</pre></div>
+</div>
+<p>チェック対象の属性は以下のようにして求められる:</p>
+<div class="highlight-python"><div class="highlight"><pre>(Pdb) p data.keys()
+[&#39;status&#39;, &#39;subnets&#39;, &#39;name&#39;, &#39;provider:physical_network&#39;, &#39;admin_state_up&#39;, &#39;tenant_id&#39;,\
+ &#39;provider:network_type&#39;, &#39;router:external&#39;, &#39;shared&#39;, &#39;id&#39;, &#39;provider:segmentation_id&#39;]
+(Pdb)
+(Pdb) p self._plugin_handlers[self.SHOW], attr_name
+(&#39;get_network&#39;, &#39;status&#39;)
+(Pdb)
+</pre></div>
+</div>
+<p>以下、policy.check()の内容[neutron/policy.py]:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="k">def</span> <span class="nf">check</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="n">action</span><span class="p">,</span> <span class="n">target</span><span class="p">,</span> <span class="n">plugin</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">might_not_exist</span><span class="o">=</span><span class="bp">False</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Verifies that the action is valid on the target in this context.</span>
+
+<span class="sd">    :param context: neutron context</span>
+<span class="sd">    :param action: string representing the action to be checked</span>
+<span class="sd">        this should be colon separated for clarity.</span>
+<span class="sd">    :param target: dictionary representing the object of the action</span>
+<span class="sd">        for object creation this should be a dictionary representing the</span>
+<span class="sd">        location of the object e.g. ``{&#39;project_id&#39;: context.project_id}``</span>
+<span class="sd">    :param plugin: currently unused and deprecated.</span>
+<span class="sd">        Kept for backward compatibility.</span>
+<span class="sd">    :param might_not_exist: If True the policy check is skipped (and the</span>
+<span class="sd">        function returns True) if the specified policy does not exist.</span>
+<span class="sd">        Defaults to false.</span>
+
+<span class="sd">    :return: Returns True if access is permitted else False.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">might_not_exist</span> <span class="ow">and</span> <span class="ow">not</span> <span class="p">(</span><span class="n">policy</span><span class="o">.</span><span class="n">_rules</span> <span class="ow">and</span> <span class="n">action</span> <span class="ow">in</span> <span class="n">policy</span><span class="o">.</span><span class="n">_rules</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">True</span>
+    <span class="k">return</span> <span class="n">policy</span><span class="o">.</span><span class="n">check</span><span class="p">(</span><span class="o">*</span><span class="p">(</span><span class="n">_prepare_check</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="n">action</span><span class="p">,</span> <span class="n">target</span><span class="p">)))</span>
+</pre></div>
+</div>
+<p>might_not_exist=Trueなので、アクションが定義されて意無い場合はTrueになる。
+あれ、defaultのルールが適用されないぞ・・・？、例えば、get_network:provider:physical_networkだとpolicy.jsonに定義されているので、policy.checkが行われるが、get_network:nameなどは定義されていないため、Trueになる:</p>
+<div class="highlight-python"><div class="highlight"><pre>(Pdb) p action
+&#39;get_network:status&#39;
+(Pdb) p policy._rules and action in policy._rules
+False
+(Pdb)
+</pre></div>
+</div>
+<p>roleがadminでない場合は、physical_networkは見れない。そこで、policy.jsonからphysical_networkに関するルールを削除した場合、roleがadminでなくても、physical_networkが見れるようになるか実験。:</p>
+<div class="highlight-python"><div class="highlight"><pre>【physical_networkをpolicy.jsonから除く前】
+miyakz@icehouse:~$ neutron net-show aaa
++-----------------+--------------------------------------+
+| Field           | Value                                |
++-----------------+--------------------------------------+
+| admin_state_up  | True                                 |
+| id              | 0415753f-a189-461d-a0d8-284aa6c47e4b |
+| name            | aaa                                  |
+| router:external | False                                |
+| shared          | False                                |
+| status          | ACTIVE                               |
+| subnets         |                                      |
+| tenant_id       | bbf770e7cc7d499fba61abc002be7693     |
++-----------------+--------------------------------------+
+miyakz@icehouse:~$
+
+【physical_networkをpolicy.jsonから除いた後】
+miyakz@icehouse:/etc/neutron$ neutron net-show aaa
++---------------------------+--------------------------------------+
+| Field                     | Value                                |
++---------------------------+--------------------------------------+
+| admin_state_up            | True                                 |
+| id                        | 0415753f-a189-461d-a0d8-284aa6c47e4b |
+| name                      | aaa                                  |
+| provider:physical_network |                                      |
+| router:external           | False                                |
+| shared                    | False                                |
+| status                    | ACTIVE                               |
+| subnets                   |                                      |
+| tenant_id                 | bbf770e7cc7d499fba61abc002be7693     |
++---------------------------+--------------------------------------+
+miyakz@icehouse:/etc/neutron$
+</pre></div>
+</div>
+<p>という感じで見れてしまう。
+defaultは以下で定義されているようにみえるのだが:</p>
+<div class="highlight-python"><div class="highlight"><pre>class Rules(dict):
+    &quot;&quot;&quot;
+    A store for rules.  Handles the default_rule setting directly.
+    &quot;&quot;&quot;
+(snip)
+    def __missing__(self, key):
+        &quot;&quot;&quot;Implements the default rule handling.&quot;&quot;&quot;
+
+        # If the default rule isn&#39;t actually defined, do something
+        # reasonably intelligent
+        if not self.default_rule or self.default_rule not in self:
+            raise KeyError(key)
+
+        return self[self.default_rule]
+(snip)
+</pre></div>
+</div>
+</div>
+<div class="section" id="id3">
+<h1>認証の処理<a class="headerlink" href="#id3" title="このヘッドラインへのパーマリンク">¶</a></h1>
+<div class="section" id="neutron-net-show-network-name-get-v2-0-etworks-json-fields-id-id-network-id">
+<h2>neutron net-show &lt;network name&gt;(GET /v2.0/etworks.json?fields=id&amp;id=network_id)の処理から見てみる<a class="headerlink" href="#neutron-net-show-network-name-get-v2-0-etworks-json-fields-id-id-network-id" title="このヘッドラインへのパーマリンク">¶</a></h2>
+<p>デバッガで表示させたスタックトレース。以下、「★ココ！！」に着目:</p>
+<div class="highlight-python"><div class="highlight"><pre>&gt; /opt/stack/neutron/neutron/db/db_base_plugin_v2.py(1032)get_network()
+-&gt; network = self._get_network(context, id)
+(Pdb) w
+  /usr/local/lib/python2.7/dist-packages/eventlet/greenpool.py(80)_spawn_n_impl()
+-&gt; func(*args, **kwargs)
+  /usr/local/lib/python2.7/dist-packages/eventlet/wsgi.py(594)process_request()
+-&gt; proto.__init__(sock, address, self)
+  /usr/lib/python2.7/SocketServer.py(638)__init__()
+-&gt; self.handle()
+  /usr/lib/python2.7/BaseHTTPServer.py(340)handle()
+-&gt; self.handle_one_request()
+  /usr/local/lib/python2.7/dist-packages/eventlet/wsgi.py(285)handle_one_request()
+-&gt; self.handle_one_response()
+  /usr/local/lib/python2.7/dist-packages/eventlet/wsgi.py(389)handle_one_response()
+-&gt; result = self.application(self.environ, start_response)
+  /usr/lib/python2.7/dist-packages/paste/urlmap.py(203)__call__()
+-&gt; return app(environ, start_response)
+  /usr/local/lib/python2.7/dist-packages/webob/dec.py(130)__call__()
+-&gt; resp = self.call_func(req, *args, **self.kwargs)
+  /usr/local/lib/python2.7/dist-packages/webob/dec.py(195)call_func()
+-&gt; return self.func(req, *args, **kwargs)
+  /opt/stack/neutron/neutron/openstack/common/middleware/request_id.py(38)__call__()
+-&gt; response = req.get_response(self.application)
+  /usr/local/lib/python2.7/dist-packages/webob/request.py(1320)send()
+-&gt; application, catch_exc_info=False)
+  /usr/local/lib/python2.7/dist-packages/webob/request.py(1284)call_application()
+-&gt; app_iter = application(self.environ, start_response)
+  /usr/local/lib/python2.7/dist-packages/webob/dec.py(130)__call__()
+-&gt; resp = self.call_func(req, *args, **self.kwargs)
+  /usr/local/lib/python2.7/dist-packages/webob/dec.py(195)call_func()
+-&gt; return self.func(req, *args, **kwargs)
+  /opt/stack/neutron/neutron/openstack/common/middleware/catch_errors.py(38)__call__()
+-&gt; response = req.get_response(self.application)
+  /usr/local/lib/python2.7/dist-packages/webob/request.py(1320)send()
+-&gt; application, catch_exc_info=False)
+  /usr/local/lib/python2.7/dist-packages/webob/request.py(1284)call_application()
+-&gt; app_iter = application(self.environ, start_response)
+  /opt/stack/python-keystoneclient/keystoneclient/middleware/auth_token.py(632)__call__()★ココ！！
+-&gt; return self.app(env, start_response)
+  /usr/local/lib/python2.7/dist-packages/webob/dec.py(144)__call__()
+-&gt; return resp(environ, start_response)
+  /usr/local/lib/python2.7/dist-packages/webob/dec.py(144)__call__()
+-&gt; return resp(environ, start_response)
+  /usr/lib/python2.7/dist-packages/routes/middleware.py(131)__call__()
+-&gt; response = self.app(environ, start_response)
+  /usr/local/lib/python2.7/dist-packages/webob/dec.py(144)__call__()
+-&gt; return resp(environ, start_response)
+  /usr/local/lib/python2.7/dist-packages/webob/dec.py(144)__call__()
+-&gt; return resp(environ, start_response)
+  /usr/lib/python2.7/dist-packages/routes/middleware.py(131)__call__()
+-&gt; response = self.app(environ, start_response)
+  /usr/local/lib/python2.7/dist-packages/webob/dec.py(144)__call__()
+-&gt; return resp(environ, start_response)
+  /usr/local/lib/python2.7/dist-packages/webob/dec.py(130)__call__()
+-&gt; resp = self.call_func(req, *args, **self.kwargs)
+  /usr/local/lib/python2.7/dist-packages/webob/dec.py(195)call_func()
+-&gt; return self.func(req, *args, **kwargs)
+  /opt/stack/neutron/neutron/api/v2/resource.py(87)resource()
+-&gt; result = method(request=request, **args)
+  /opt/stack/neutron/neutron/api/v2/base.py(328)show()
+-&gt; parent_id=parent_id),
+  /opt/stack/neutron/neutron/api/v2/base.py(283)_item()
+-&gt; obj = obj_getter(request.context, id, **kwargs)
+  /opt/stack/neutron/neutron/plugins/ml2/plugin.py(427)get_network()
+-&gt; result = super(Ml2Plugin, self).get_network(context, id, None)
+&gt; /opt/stack/neutron/neutron/db/db_base_plugin_v2.py(1032)get_network()
+-&gt; network = self._get_network(context, id)
+(Pdb)
+</pre></div>
+</div>
+<p>/etc/neutron/api-paste.iniを見ると以下のように、authtokenとkeystonecontextが設定されている。
+[composite:neutronapi_v2_0]のnoauthとkeystoneはneutron.confのauth_strategyに設定されている項目に対応すると考える:</p>
+<div class="highlight-python"><div class="highlight"><pre>[composite:neutron]
+use = egg:Paste#urlmap
+/: neutronversions
+/v2.0: neutronapi_v2_0
+
+[composite:neutronapi_v2_0]
+use = call:neutron.auth:pipeline_factory
+noauth = request_id catch_errors extensions neutronapiapp_v2_0
+keystone = request_id catch_errors authtoken keystonecontext extensions neutronapiapp_v2_0
+
+[filter:request_id]
+paste.filter_factory = neutron.openstack.common.middleware.request_id:RequestIdMiddleware.factory
+
+[filter:catch_errors]
+paste.filter_factory = neutron.openstack.common.middleware.catch_errors:CatchErrorsMiddleware.factory
+
+[filter:keystonecontext]
+paste.filter_factory = neutron.auth:NeutronKeystoneContext.factory
+
+[filter:authtoken]
+paste.filter_factory = keystoneclient.middleware.auth_token:filter_factory
+
+[filter:extensions]
+paste.filter_factory = neutron.api.extensions:plugin_aware_extension_middleware_factory
+
+[app:neutronversions]
+paste.app_factory = neutron.api.versions:Versions.factory
+
+[app:neutronapiapp_v2_0]
+paste.app_factory = neutron.api.v2.router:APIRouter.factory
+</pre></div>
+</div>
+<p>そこで、まずは、[filter:authtoken]のkeystoneclient.middleware.auth_tokenで実施されている処理を見てゆく。
+なお、これは、上記スタックトレースで言う「★ココ！！」の部分に対応するものである。</p>
+</div>
+<div class="section" id="auth-token">
+<h2>auth_tokenの処理<a class="headerlink" href="#auth-token" title="このヘッドラインへのパーマリンク">¶</a></h2>
+<p>tokenのvalidateを行う処理。</p>
+<p>[ソース]
+python-keystoneclient/keystoneclient/middleware/auth_token.py</p>
+<p>[middleware architecture]
+<a class="reference external" href="http://docs.openstack.org/developer/python-keystoneclient/middlewarearchitecture.html">http://docs.openstack.org/developer/python-keystoneclient/middlewarearchitecture.html</a></p>
+<p>以下が、auth_tokenで呼ばれるコードである(__call__が呼ばれる)。:</p>
+<div class="highlight-python"><div class="highlight"><pre>class AuthProtocol(object):
+    &quot;&quot;&quot;Auth Middleware that handles authenticating client calls.&quot;&quot;&quot;
+(snip)
+    def __call__(self, env, start_response):
+        &quot;&quot;&quot;Handle incoming request.
+
+        Authenticate send downstream on success. Reject request if
+        we can&#39;t authenticate.
+
+        &quot;&quot;&quot;
+        self.LOG.debug(&#39;Authenticating user token&#39;)
+
+        self._token_cache.initialize(env)
+
+        try:
+            self._remove_auth_headers(env)
+            user_token = self._get_user_token_from_header(env)
+            token_info = self._validate_user_token(user_token, env)
+            env[&#39;keystone.token_info&#39;] = token_info
+            user_headers = self._build_user_headers(token_info)
+            self._add_headers(env, user_headers)
+            return self.app(env, start_response)
+
+        except InvalidUserToken:
+            if self.delay_auth_decision:
+                self.LOG.info(
+                    &#39;Invalid user token - deferring reject downstream&#39;)
+                self._add_headers(env, {&#39;X-Identity-Status&#39;: &#39;Invalid&#39;})
+                return self.app(env, start_response)
+            else:
+                self.LOG.info(&#39;Invalid user token - rejecting request&#39;)
+                return self._reject_request(env, start_response)
+
+        except ServiceError as e:
+            self.LOG.critical(&#39;Unable to obtain admin token: %s&#39;, e)
+            resp = MiniResp(&#39;Service unavailable&#39;, env)
+            start_response(&#39;503 Service Unavailable&#39;, resp.headers)
+            return resp.body
+(snip)
+</pre></div>
+</div>
+</div>
+<div class="section" id="neutron-auth-neutronkeystonecontext">
+<h2>neutron.auth:NeutronKeystoneContextの処理<a class="headerlink" href="#neutron-auth-neutronkeystonecontext" title="このヘッドラインへのパーマリンク">¶</a></h2>
+<p>user_id,tenant_id,roles,tenant_name,user_name,req_idをcontext.Contextクラスに詰め込んでreq.environ[&#8216;neutron.context&#8217;]に代入する。</p>
+<p>[ソース]
+neutron/auth.py</p>
+<p>以下が、コードである。:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="k">class</span> <span class="nc">NeutronKeystoneContext</span><span class="p">(</span><span class="n">wsgi</span><span class="o">.</span><span class="n">Middleware</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Make a request context from keystone headers.&quot;&quot;&quot;</span>
+
+    <span class="nd">@webob.dec.wsgify</span>
+    <span class="k">def</span> <span class="nf">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">req</span><span class="p">):</span>
+        <span class="c"># Determine the user ID</span>
+        <span class="n">user_id</span> <span class="o">=</span> <span class="n">req</span><span class="o">.</span><span class="n">headers</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&#39;X_USER_ID&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">user_id</span><span class="p">:</span>
+            <span class="n">LOG</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="n">_</span><span class="p">(</span><span class="s">&quot;X_USER_ID is not found in request&quot;</span><span class="p">))</span>
+            <span class="k">return</span> <span class="n">webob</span><span class="o">.</span><span class="n">exc</span><span class="o">.</span><span class="n">HTTPUnauthorized</span><span class="p">()</span>
+
+        <span class="c"># Determine the tenant</span>
+        <span class="n">tenant_id</span> <span class="o">=</span> <span class="n">req</span><span class="o">.</span><span class="n">headers</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&#39;X_PROJECT_ID&#39;</span><span class="p">)</span>
+
+        <span class="c"># Suck out the roles</span>
+        <span class="n">roles</span> <span class="o">=</span> <span class="p">[</span><span class="n">r</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">req</span><span class="o">.</span><span class="n">headers</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&#39;X_ROLES&#39;</span><span class="p">,</span> <span class="s">&#39;&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s">&#39;,&#39;</span><span class="p">)]</span>
+
+        <span class="c"># Human-friendly names</span>
+        <span class="n">tenant_name</span> <span class="o">=</span> <span class="n">req</span><span class="o">.</span><span class="n">headers</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&#39;X_PROJECT_NAME&#39;</span><span class="p">)</span>
+        <span class="n">user_name</span> <span class="o">=</span> <span class="n">req</span><span class="o">.</span><span class="n">headers</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&#39;X_USER_NAME&#39;</span><span class="p">)</span>
+
+        <span class="c"># Use request_id if already set</span>
+        <span class="n">req_id</span> <span class="o">=</span> <span class="n">req</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">request_id</span><span class="o">.</span><span class="n">ENV_REQUEST_ID</span><span class="p">)</span>
+
+        <span class="c"># Create a context with the authentication data</span>
+        <span class="n">ctx</span> <span class="o">=</span> <span class="n">context</span><span class="o">.</span><span class="n">Context</span><span class="p">(</span><span class="n">user_id</span><span class="p">,</span> <span class="n">tenant_id</span><span class="p">,</span> <span class="n">roles</span><span class="o">=</span><span class="n">roles</span><span class="p">,</span>
+                              <span class="n">user_name</span><span class="o">=</span><span class="n">user_name</span><span class="p">,</span> <span class="n">tenant_name</span><span class="o">=</span><span class="n">tenant_name</span><span class="p">,</span>
+                              <span class="n">request_id</span><span class="o">=</span><span class="n">req_id</span><span class="p">)</span>
+
+        <span class="c"># Inject the context...</span>
+        <span class="n">req</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s">&#39;neutron.context&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">ctx</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">application</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="id4">
+<h2>認証の復習<a class="headerlink" href="#id4" title="このヘッドラインへのパーマリンク">¶</a></h2>
+<p>Authentication
+認証
+　ネットワークやサーバへ接続する際に本人性をチェックし、正規の利用者であることを確認する方法。一般には利用者IDとパスワードの組み合わせにより本人を特定する。認証がなされると、本人が持つ権限でデータへのアクセスやアプリケーションの利用が可能となる。不正利用を防ぐため、パスワードの漏えいなどには十分な注意が必要である。</p>
+<p><a class="reference external" href="http://www.atmarkit.co.jp/aig/02security/authentication.html">http://www.atmarkit.co.jp/aig/02security/authentication.html</a></p>
+</div>
+<div class="section" id="id5">
+<h2>認可の復習<a class="headerlink" href="#id5" title="このヘッドラインへのパーマリンク">¶</a></h2>
+<p>Authorization
+認可</p>
+<p>認証（Authentication）によって確認された利用者を識別して、アクセス権限の制御を行い、利用者ごとに固有のサービスを提供すること。</p>
+<p>　具体的には、利用可能なアプリケーションの制御、ファイルに対する“読み／書き／実行”の権限など、利用者の資格に応じて許可する。認可のための属性情報には、利用者ID／所属グループ／役職／部署／アクセス制御リスト（ACL）などがある。</p>
+<p>　運用管理の面から、認可はACL（Access Control List）で与えることがセキュリティ上でも望ましく、SSO（Single Sign On）でもACLと組み合わせることが多い。
+<a class="reference external" href="http://www.atmarkit.co.jp/aig/02security/authorization.html">http://www.atmarkit.co.jp/aig/02security/authorization.html</a></p>
+</div>
+</div>
+
+
+    </div>
+    <!-- /current document area -->
+    <!-- sidebar -->
+    
+  <div id="sidebar" class="left">
+    <div id="sidebarWrap">
+  <div id="toc" class="sidebarRow">
+  <h3><a href="index.html">目次</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">認証・認可系の処理</a></li>
+<li><a class="reference internal" href="#enforce">認可の処理(enforceメソッドの処理)</a></li>
+<li><a class="reference internal" href="#id2">認可の処理(リソースの表示編)</a></li>
+<li><a class="reference internal" href="#id3">認証の処理</a><ul>
+<li><a class="reference internal" href="#neutron-net-show-network-name-get-v2-0-etworks-json-fields-id-id-network-id">neutron net-show &lt;network name&gt;(GET /v2.0/etworks.json?fields=id&amp;id=network_id)の処理から見てみる</a></li>
+<li><a class="reference internal" href="#auth-token">auth_tokenの処理</a></li>
+<li><a class="reference internal" href="#neutron-auth-neutronkeystonecontext">neutron.auth:NeutronKeystoneContextの処理</a></li>
+<li><a class="reference internal" href="#id4">認証の復習</a></li>
+<li><a class="reference internal" href="#id5">認可の復習</a></li>
+</ul>
+</li>
+</ul>
+
+  </div>
+<div id="rel" class="sidebarRow">
+  <div class="relRow prev">
+  <h4>前のトピックへ</h4>
+  <p class="topless"><a href="fwaas.html"
+                        title="前の章へ">FWaaS internal(icehouse)</a></p>
+  </div>
+</div>
+  <div id="source" class="sidebarRow">
+  <h3>このページ</h3>
+  <ul class="this-page-menu">
+    <li><a href="_sources/access_policy.txt"
+           rel="nofollow">ソースコードを表示</a></li>
+  </ul>
+  </div>
+<div id="searchbox" style="display: none">
+  <h3>クイック検索</h3>
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="検索" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    モジュール、クラス、または関数名を入力してください
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+    </div>
+  </div>
+    <!-- /sidebar -->
+  </div>
+  
+  <!-- /content -->
+</div>
+  <!-- footer -->
+  
+  <div id="footer">
+    <div class="footerCol">
+      <h1><a href="index.html">neutron internal</a></h1>
+      <p class="copy">
+      &copy; Copyright 2014, kazuhiro MIYASHITA.
+      </p>
+      <p class="sp">
+      このドキュメントは <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.2.2 で生成しました。
+      </p>
+    </div>
+    <div class="footerCol">
+    
+  <div class="relbar">
+    <dl id="relPrev">
+      <dt class="prev">前のトピックへ</dt>
+      <dd class="relTitle"><a href="fwaas.html" title="前の章へ" accesskey="N">FWaaS internal(icehouse)</a></dd>
+    </dl>
+  </div>
+    </div>
+  </div>
+ 
+ <!-- /footer -->
+</body>
+</html>

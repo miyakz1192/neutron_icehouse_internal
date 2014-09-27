@@ -12,6 +12,7 @@ Contents:
    :maxdepth: 2
 
    fwaas
+   access_policy
 
 Indices and tables
 ==================
