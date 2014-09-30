@@ -1,85 +1,40 @@
 認証・認可系の処理
 ==================
 
-認可の処理(enforceメソッドの処理)
-=================================
+認可の処理(リソースの作成編)
+============================
 
-policy.jsonの記載内容にしたがって、認可の処理を行う。
-なお、api-paste.iniで指定するフックとして呼び出される処理ではないらしい。
+ここのキモは、ユーザが指定したアクション(例：create_network)および、リソースの属性(例：name,shared,...)を元にmatch_ruleを作成する事。match_ruleには、必ず、アクションが先頭に来て、その次にリソースの属性のmatch_ruleが来る。ユーザが指定しなかった属性についてはmatch_ruleが作成されない。例えば、以下のユーザがあったとして、::
 
-[ソース]
-neutron/policy.py
+     OS_PASSWORD=a
+     OS_AUTH_URL=http://192.168.122.36:5000/v2.0/
+     OS_USERNAME=user1
+     OS_TENANT_NAME=admin
+     LESSCLOSE=/usr/bin/lesspipe %s %s
+     
+このユーザは_member_ロールであって、かつ、以下のコマンドを実行したとする。::
 
-スタックトレースは以下。::
+     neutron net-create shared1 --shared
+     
+この時、name=shared1, shared=Trueが指定されているため、match_ruleの構造は以下になる。なお、enforce_policy指定されている属性のみmatch_ruleとして現れる。nameは指定されてないのでmatch_ruleには現れない。::
 
-     > /opt/stack/neutron/neutron/policy.py(367)enforce()
-     -> rule, target, credentials = _prepare_check(context, action, target)
-     (Pdb) w
-       /usr/local/lib/python2.7/dist-packages/eventlet/greenpool.py(80)_spawn_n_impl()
-     -> func(*args, **kwargs)
-       /usr/local/lib/python2.7/dist-packages/eventlet/wsgi.py(594)process_request()
-     -> proto.__init__(sock, address, self)
-       /usr/lib/python2.7/SocketServer.py(638)__init__()
-     -> self.handle()
-       /usr/lib/python2.7/BaseHTTPServer.py(340)handle()
-     -> self.handle_one_request()
-       /usr/local/lib/python2.7/dist-packages/eventlet/wsgi.py(285)handle_one_request()
-     -> self.handle_one_response()
-       /usr/local/lib/python2.7/dist-packages/eventlet/wsgi.py(389)handle_one_response()
-     -> result = self.application(self.environ, start_response)
-       /usr/lib/python2.7/dist-packages/paste/urlmap.py(203)__call__()
-     -> return app(environ, start_response)
-       /usr/local/lib/python2.7/dist-packages/webob/dec.py(130)__call__()
-     -> resp = self.call_func(req, *args, **self.kwargs)
-       /usr/local/lib/python2.7/dist-packages/webob/dec.py(195)call_func()
-     -> return self.func(req, *args, **kwargs)
-       /opt/stack/neutron/neutron/openstack/common/middleware/request_id.py(38)__call__()
-     -> response = req.get_response(self.application)
-       /usr/local/lib/python2.7/dist-packages/webob/request.py(1320)send()
-     -> application, catch_exc_info=False)
-       /usr/local/lib/python2.7/dist-packages/webob/request.py(1284)call_application()
-     -> app_iter = application(self.environ, start_response)
-       /usr/local/lib/python2.7/dist-packages/webob/dec.py(130)__call__()
-     -> resp = self.call_func(req, *args, **self.kwargs)
-       /usr/local/lib/python2.7/dist-packages/webob/dec.py(195)call_func()
-     -> return self.func(req, *args, **kwargs)
-       /opt/stack/neutron/neutron/openstack/common/middleware/catch_errors.py(38)__call__()
-     -> response = req.get_response(self.application)
-       /usr/local/lib/python2.7/dist-packages/webob/request.py(1320)send()
-     -> application, catch_exc_info=False)
-       /usr/local/lib/python2.7/dist-packages/webob/request.py(1284)call_application()
-     -> app_iter = application(self.environ, start_response)
-       /opt/stack/python-keystoneclient/keystoneclient/middleware/auth_token.py(632)__call__()
-     -> return self.app(env, start_response)
-       /usr/local/lib/python2.7/dist-packages/webob/dec.py(144)__call__()
-     -> return resp(environ, start_response)
-       /usr/local/lib/python2.7/dist-packages/webob/dec.py(144)__call__()
-     -> return resp(environ, start_response)
-       /usr/lib/python2.7/dist-packages/routes/middleware.py(131)__call__()
-     -> response = self.app(environ, start_response)
-       /usr/local/lib/python2.7/dist-packages/webob/dec.py(144)__call__()
-     -> return resp(environ, start_response)
-       /usr/local/lib/python2.7/dist-packages/webob/dec.py(144)__call__()
-     -> return resp(environ, start_response)
-       /usr/lib/python2.7/dist-packages/routes/middleware.py(131)__call__()
-     -> response = self.app(environ, start_response)
-       /usr/local/lib/python2.7/dist-packages/webob/dec.py(144)__call__()
-     -> return resp(environ, start_response)
-       /usr/local/lib/python2.7/dist-packages/webob/dec.py(130)__call__()
-     -> resp = self.call_func(req, *args, **self.kwargs)
-       /usr/local/lib/python2.7/dist-packages/webob/dec.py(195)call_func()
-     -> return self.func(req, *args, **kwargs)
-       /opt/stack/neutron/neutron/api/v2/resource.py(87)resource()
-     -> result = method(request=request, **args)
-       /opt/stack/neutron/neutron/api/v2/base.py(328)show()
-     -> parent_id=parent_id),
-       /opt/stack/neutron/neutron/api/v2/base.py(288)_item()
-     -> policy.enforce(request.context, action, obj)
-     > /opt/stack/neutron/neutron/policy.py(367)enforce()
-     -> rule, target, credentials = _prepare_check(context, action, target)
-     (Pdb) 
+    match_rule = action=create_network And shared=True
 
-policy.enforceの呼び出し元は以下。::
+match_ruleとpolicy.jsonから生成したルール(_rules)の照合を行っていく。
+
++----------------------+----------------------------+
+| match_rule(from user)|      _rules(policy.json)   |
++======================+============================+
+|create_network        |   create_network -> True   | 
++----------------------+----------------------------+
+|create_network:shared |   create_network:shared -> |
+|                      |   admin_only            -> |
+|                      |   context_is_admin         | 
++----------------------+----------------------------+
+
+さて、ソースを追っていく。
+
+policy.enforceの呼び出し元は以下。なお、api-paste.iniで指定するフックとして呼び出される処理ではないらしい。::
 
     def create(self, request, body=None, **kwargs):
         """Creates a new instance of the requested entity."""
@@ -234,7 +189,7 @@ _build_match_rulehは以下。::
 以降、enforceメソッドの中のpolicy.checkでは以下の順番に、policy.jsonから生成したルール(_rules)と照合を行っていく。
 
 +----------------------+----------------------------+
-|    match_rule        |      _rules(policy.json)   |
+| match_rule(from user)|      _rules(policy.json)   |
 +======================+============================+
 |create_network        |   create_network -> True   | 
 +----------------------+----------------------------+
