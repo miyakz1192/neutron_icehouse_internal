@@ -131,28 +131,29 @@ policy.enforceの呼び出し元は以下。::
 
 enforceのコードは以下::
 
+
      def enforce(context, action, target, plugin=None):
-         """Verifies that the action is valid on the target in this context.                   
-                                                                                               
-         :param context: neutron context                                                       
-         :param action: string representing the action to be checked                           
-             this should be colon separated for clarity.                                       
-         :param target: dictionary representing the object of the action                       
-             for object creation this should be a dictionary representing the                  
-             location of the object e.g. ``{'project_id': context.project_id}``                
-         :param plugin: currently unused and deprecated.                                       
-             Kept for backward compatibility.                                                  
-                                                                                               
-         :raises neutron.exceptions.PolicyNotAuthorized: if verification fails.                
+         """Verifies that the action is valid on the target in this context.
+     
+         :param context: neutron context
+         :param action: string representing the action to be checked
+             this should be colon separated for clarity.
+         :param target: dictionary representing the object of the action
+             for object creation this should be a dictionary representing the
+             location of the object e.g. ``{'project_id': context.project_id}``
+         :param plugin: currently unused and deprecated.
+             Kept for backward compatibility.
+     
+         :raises neutron.exceptions.PolicyNotAuthorized: if verification fails.
          """
      
          rule, target, credentials = _prepare_check(context, action, target)
          result = policy.check(rule, target, credentials, action=action)
          if not result:
              LOG.debug(_("Failed policy check for '%s'"), action)
-     	raise exceptions.PolicyNotAuthorized(action=action)
+             raise exceptions.PolicyNotAuthorized(action=action)
          return result
-
+     
 引数の例は以下のとおり::
 
      (Pdb) a
@@ -214,6 +215,40 @@ _build_match_rulehは以下。::
                              match_rule = policy.AndCheck([match_rule, attr_rule])
          return match_rule
 
+このメソッドのキモは、ユーザが指定したアクション(例：create_network)および、リソースの属性(例：name,shared,...)を元にmatch_ruleを作成する事。match_ruleには、必ず、アクションが先頭に来て、その次にリソースの属性のmatch_ruleが来る。ユーザが指定しなかった属性についてはmatch_ruleが作成されない。例えば、以下のユーザがあったとして、::
+
+     OS_PASSWORD=a
+     OS_AUTH_URL=http://192.168.122.36:5000/v2.0/
+     OS_USERNAME=user1
+     OS_TENANT_NAME=admin
+     LESSCLOSE=/usr/bin/lesspipe %s %s
+     
+このユーザは_member_ロールであって、かつ、以下のコマンドを実行したとする。::
+
+     neutron net-create shared1 --shared
+     
+この時、name=shared1, shared=Trueが指定されているため、match_ruleの構造は以下になる。なお、enforce_policy指定されている属性のみmatch_ruleとして現れる。nameは指定されてないのでmatch_ruleには現れない。::
+
+    match_rule = action=create_network And shared=True
+
+以降、enforceメソッドの中のpolicy.checkでは以下の順番に、policy.jsonから生成したルール(_rules)と照合を行っていく。
+
++----------------------+----------------------------+
+|    match_rule        |      _rules(policy.json)   |
++======================+============================+
+|create_network        |   create_network -> True   | 
++----------------------+----------------------------+
+|create_network:shared |   create_network:shared -> |
+|                      |   admin_only            -> |
+|                      |   context_is_admin         | 
++----------------------+----------------------------+
+
+この場合は、2つめのcreate_network:sharedのルール照合で、contest_is_adminのところで条件がFalse(admin is not in [_member_]:API発行ユーザのロールにadminが含まれていない)になるため、認可に失敗して、コマンドは結局以下のエラーになる(403:forbidden)。::
+
+     miyakz@icehouse:/etc/neutron$ neutron net-create shared1 --shared
+     Policy doesn't allow create_network to be performed.
+     miyakz@icehouse:/etc/neutron$ 
+     
 ちなみに、attributes.RESOURCE_ATTRIBUTE_MAPの値は以下。この定数自体はapi/v2/attributes.pyで定義されている。多分どこかで、各extentionの同名の定数が連結されている::          
           
      (Pdb) p attributes.RESOURCE_ATTRIBUTE_MAP
@@ -311,7 +346,18 @@ create_networkのケースでは以下の要になっていて::
              return True
 
 認可の処理(リソースの表示編)
-===========================
+==============================
+
+リソースのshowでは、最初にアクション（例：get_network）の認可を行い、次にリソースの各属性の認可を行う。
+     
+neutron/api/v2/base.pyのshowメソッドは以下の構造になっている。::
+            
+     show 
+      | 
+      +->  _item -> policy.enforce(アクション:get_network等)
+      +->  _view -> _exclude_attributes_by_policy -> policy.check(各属性)     
+
+では、ソースの詳細を見てみる。
 
 [ソース]
 neutron/api/v2/base.py
@@ -473,12 +519,11 @@ defaultは以下で定義されているようにみえるのだが::
 
 
 
-
 認証の処理
-=========
+============
 
 neutron net-show <network name>(GET /v2.0/etworks.json?fields=id&id=network_id)の処理から見てみる
---------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------
 
 デバッガで表示させたスタックトレース。以下、「★ココ！！」に着目::
 

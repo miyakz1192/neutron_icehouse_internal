@@ -199,27 +199,27 @@ neutron/policy.py</p>
 </pre></div>
 </div>
 <p>enforceのコードは以下:</p>
-<div class="highlight-python"><div class="highlight"><pre>def enforce(context, action, target, plugin=None):
-    &quot;&quot;&quot;Verifies that the action is valid on the target in this context.
+<div class="highlight-python"><div class="highlight"><pre><span class="k">def</span> <span class="nf">enforce</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="n">action</span><span class="p">,</span> <span class="n">target</span><span class="p">,</span> <span class="n">plugin</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Verifies that the action is valid on the target in this context.</span>
 
-    :param context: neutron context
-    :param action: string representing the action to be checked
-        this should be colon separated for clarity.
-    :param target: dictionary representing the object of the action
-        for object creation this should be a dictionary representing the
-        location of the object e.g. ``{&#39;project_id&#39;: context.project_id}``
-    :param plugin: currently unused and deprecated.
-        Kept for backward compatibility.
+<span class="sd">    :param context: neutron context</span>
+<span class="sd">    :param action: string representing the action to be checked</span>
+<span class="sd">        this should be colon separated for clarity.</span>
+<span class="sd">    :param target: dictionary representing the object of the action</span>
+<span class="sd">        for object creation this should be a dictionary representing the</span>
+<span class="sd">        location of the object e.g. ``{&#39;project_id&#39;: context.project_id}``</span>
+<span class="sd">    :param plugin: currently unused and deprecated.</span>
+<span class="sd">        Kept for backward compatibility.</span>
 
-    :raises neutron.exceptions.PolicyNotAuthorized: if verification fails.
-    &quot;&quot;&quot;
+<span class="sd">    :raises neutron.exceptions.PolicyNotAuthorized: if verification fails.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
 
-    rule, target, credentials = _prepare_check(context, action, target)
-    result = policy.check(rule, target, credentials, action=action)
-    if not result:
-        LOG.debug(_(&quot;Failed policy check for &#39;%s&#39;&quot;), action)
-   raise exceptions.PolicyNotAuthorized(action=action)
-    return result
+    <span class="n">rule</span><span class="p">,</span> <span class="n">target</span><span class="p">,</span> <span class="n">credentials</span> <span class="o">=</span> <span class="n">_prepare_check</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="n">action</span><span class="p">,</span> <span class="n">target</span><span class="p">)</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="n">policy</span><span class="o">.</span><span class="n">check</span><span class="p">(</span><span class="n">rule</span><span class="p">,</span> <span class="n">target</span><span class="p">,</span> <span class="n">credentials</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="n">action</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">result</span><span class="p">:</span>
+        <span class="n">LOG</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="n">_</span><span class="p">(</span><span class="s">&quot;Failed policy check for &#39;</span><span class="si">%s</span><span class="s">&#39;&quot;</span><span class="p">),</span> <span class="n">action</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="n">exceptions</span><span class="o">.</span><span class="n">PolicyNotAuthorized</span><span class="p">(</span><span class="n">action</span><span class="o">=</span><span class="n">action</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">result</span>
 </pre></div>
 </div>
 <p>引数の例は以下のとおり:</p>
@@ -281,6 +281,50 @@ plugin = None
                                     <span class="n">action</span><span class="p">,</span> <span class="n">target</span><span class="p">)])</span>
                         <span class="n">match_rule</span> <span class="o">=</span> <span class="n">policy</span><span class="o">.</span><span class="n">AndCheck</span><span class="p">([</span><span class="n">match_rule</span><span class="p">,</span> <span class="n">attr_rule</span><span class="p">])</span>
     <span class="k">return</span> <span class="n">match_rule</span>
+</pre></div>
+</div>
+<p>このメソッドのキモは、ユーザが指定したアクション(例：create_network)および、リソースの属性(例：name,shared,...)を元にmatch_ruleを作成する事。match_ruleには、必ず、アクションが先頭に来て、その次にリソースの属性のmatch_ruleが来る。ユーザが指定しなかった属性についてはmatch_ruleが作成されない。例えば、以下のユーザがあったとして、:</p>
+<div class="highlight-python"><div class="highlight"><pre>OS_PASSWORD=a
+OS_AUTH_URL=http://192.168.122.36:5000/v2.0/
+OS_USERNAME=user1
+OS_TENANT_NAME=admin
+LESSCLOSE=/usr/bin/lesspipe %s %s
+</pre></div>
+</div>
+<p>このユーザは_member_ロールであって、かつ、以下のコマンドを実行したとする。:</p>
+<div class="highlight-python"><div class="highlight"><pre>neutron net-create shared1 --shared
+</pre></div>
+</div>
+<p>この時、name=shared1, shared=Trueが指定されているため、match_ruleの構造は以下になる。なお、enforce_policy指定されている属性のみmatch_ruleとして現れる。nameは指定されてないのでmatch_ruleには現れない。:</p>
+<div class="highlight-python"><div class="highlight"><pre>match_rule = action=create_network And shared=True
+</pre></div>
+</div>
+<p>以降、enforceメソッドの中のpolicy.checkでは以下の順番に、policy.jsonから生成したルール(_rules)と照合を行っていく。</p>
+<table border="1" class="docutils">
+<colgroup>
+<col width="44%" />
+<col width="56%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">match_rule</th>
+<th class="head">_rules(policy.json)</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td>create_network</td>
+<td>create_network -&gt; True</td>
+</tr>
+<tr class="row-odd"><td>create_network:shared</td>
+<td>create_network:shared -&gt;
+admin_only            -&gt;
+context_is_admin</td>
+</tr>
+</tbody>
+</table>
+<p>この場合は、2つめのcreate_network:sharedのルール照合で、contest_is_adminのところで条件がFalse(admin is not in [_member_]:API発行ユーザのロールにadminが含まれていない)になるため、認可に失敗して、コマンドは結局以下のエラーになる(403:forbidden)。:</p>
+<div class="highlight-python"><div class="highlight"><pre>miyakz@icehouse:/etc/neutron$ neutron net-create shared1 --shared
+Policy doesn&#39;t allow create_network to be performed.
+miyakz@icehouse:/etc/neutron$
 </pre></div>
 </div>
 <p>ちなみに、attributes.RESOURCE_ATTRIBUTE_MAPの値は以下。この定数自体はapi/v2/attributes.pyで定義されている。多分どこかで、各extentionの同名の定数が連結されている:</p>
@@ -381,6 +425,15 @@ plugin = None
 </div>
 <div class="section" id="id2">
 <h1>認可の処理(リソースの表示編)<a class="headerlink" href="#id2" title="このヘッドラインへのパーマリンク">¶</a></h1>
+<p>リソースのshowでは、最初にアクション（例：get_network）の認可を行い、次にリソースの各属性の認可を行う。</p>
+<p>neutron/api/v2/base.pyのshowメソッドは以下の構造になっている。:</p>
+<div class="highlight-python"><div class="highlight"><pre>show
+ |
+ +-&gt;  _item -&gt; policy.enforce(アクション:get_network等)
+ +-&gt;  _view -&gt; _exclude_attributes_by_policy -&gt; policy.check(各属性)
+</pre></div>
+</div>
+<p>では、ソースの詳細を見てみる。</p>
 <p>[ソース]
 neutron/api/v2/base.py</p>
 <p>[クラス]
