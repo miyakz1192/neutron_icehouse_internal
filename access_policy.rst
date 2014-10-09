@@ -472,10 +472,179 @@ defaultは以下で定義されているようにみえるのだが::
      (snip)
      
 
+認可の処理(context_is_admin)
+=============================
 
+neutron net-show <network>を実行した際のスタックトレース。::
 
+     -> init()
+     (Pdb) w
+       /usr/local/lib/python2.7/dist-packages/eventlet/greenpool.py(80)_spawn_n_impl()
+     -> func(*args, **kwargs)
+       /usr/local/lib/python2.7/dist-packages/eventlet/wsgi.py(594)process_request()
+     -> proto.__init__(sock, address, self)
+       /usr/lib/python2.7/SocketServer.py(638)__init__()
+     -> self.handle()
+       /usr/lib/python2.7/BaseHTTPServer.py(340)handle()
+     -> self.handle_one_request()
+       /usr/local/lib/python2.7/dist-packages/eventlet/wsgi.py(285)handle_one_request()
+     -> self.handle_one_response()
+       /usr/local/lib/python2.7/dist-packages/eventlet/wsgi.py(389)handle_one_response()
+     -> result = self.application(self.environ, start_response)
+       /usr/lib/python2.7/dist-packages/paste/urlmap.py(203)__call__()
+     -> return app(environ, start_response)
+       /usr/local/lib/python2.7/dist-packages/webob/dec.py(130)__call__()
+     -> resp = self.call_func(req, *args, **self.kwargs)
+       /usr/local/lib/python2.7/dist-packages/webob/dec.py(195)call_func()
+     -> return self.func(req, *args, **kwargs)
+       /opt/stack/neutron/neutron/openstack/common/middleware/request_id.py(38)__call__()
+     -> response = req.get_response(self.application)
+       /usr/local/lib/python2.7/dist-packages/webob/request.py(1320)send()
+     -> application, catch_exc_info=False)
+       /usr/local/lib/python2.7/dist-packages/webob/request.py(1284)call_application()
+     -> app_iter = application(self.environ, start_response)
+       /usr/local/lib/python2.7/dist-packages/webob/dec.py(130)__call__()
+     -> resp = self.call_func(req, *args, **self.kwargs)
+       /usr/local/lib/python2.7/dist-packages/webob/dec.py(195)call_func()
+     -> return self.func(req, *args, **kwargs)
+       /opt/stack/neutron/neutron/openstack/common/middleware/catch_errors.py(38)__call__()
+     -> response = req.get_response(self.application)
+       /usr/local/lib/python2.7/dist-packages/webob/request.py(1320)send()
+     -> application, catch_exc_info=False)
+       /usr/local/lib/python2.7/dist-packages/webob/request.py(1284)call_application()
+     -> app_iter = application(self.environ, start_response)
+       /opt/stack/python-keystoneclient/keystoneclient/middleware/auth_token.py(632)__call__()
+     -> return self.app(env, start_response)
+       /usr/local/lib/python2.7/dist-packages/webob/dec.py(130)__call__()
+     -> resp = self.call_func(req, *args, **self.kwargs)
+       /usr/local/lib/python2.7/dist-packages/webob/dec.py(195)call_func()
+     -> return self.func(req, *args, **kwargs)
+       /opt/stack/neutron/neutron/auth.py(56)__call__()★1
+     -> request_id=req_id)
+       /opt/stack/neutron/neutron/context.py(70)__init__()★2
+     -> self.is_admin = policy.check_is_admin(self)
+     > /opt/stack/neutron/neutron/policy.py(376)check_is_admin()
+     -> init()
+     (Pdb) 
+     
+★1のあたり、auth.pyはキモとなる。user_id,tenant_id,roles,tenant_name,user_name,req_idをcontext.Contextクラスに詰め込んでreq.environ['neutron.context']に代入する。::
 
+     class NeutronKeystoneContext(wsgi.Middleware):
+         """Make a request context from keystone headers."""
+     
+         @webob.dec.wsgify
+         def __call__(self, req):
+             # Determine the user ID                                                                                                    
+             user_id = req.headers.get('X_USER_ID')
+             if not user_id:
+                 LOG.debug(_("X_USER_ID is not found in request"))
+                 return webob.exc.HTTPUnauthorized()
+     
+             # Determine the tenant                                                                                                     
+             tenant_id = req.headers.get('X_PROJECT_ID')
+     
+             # Suck out the roles                                                                                                       
+             roles = [r.strip() for r in req.headers.get('X_ROLES', '').split(',')]
+     
+             # Human-friendly names                                                                                                     
+             tenant_name = req.headers.get('X_PROJECT_NAME')
+             user_name = req.headers.get('X_USER_NAME')
+     
+             # Use request_id if already set                                                                                            
+             req_id = req.environ.get(request_id.ENV_REQUEST_ID)
+     
+             # Create a context with the authentication data                                                                            
+             ctx = context.Context(user_id, tenant_id, roles=roles,
+                                   user_name=user_name, tenant_name=tenant_name,
+                                   request_id=req_id)
+     
+             # Inject the context...                                                                                                    
+             req.environ['neutron.context'] = ctx
+     
+             return self.application
+     
+context.Contextのところもキモ★2のあたり。policy.check_is_admin(self)が呼び出される。::
 
+     class ContextBase(common_context.RequestContext):
+         """Security context and request information.
+     
+         Represents the user taking a given action within the system.
+     
+         """
+     
+         def __init__(self, user_id, tenant_id, is_admin=None, read_deleted="no",
+                      roles=None, timestamp=None, load_admin_roles=True,
+                      request_id=None, tenant_name=None, user_name=None,
+                      overwrite=True, **kwargs):
+             """Object initialization.
+     
+             :param read_deleted: 'no' indicates deleted records are hidden, 'yes'
+                 indicates deleted records are visible, 'only' indicates that
+                 *only* deleted records are visible.
+     
+             :param overwrite: Set to False to ensure that the greenthread local
+                 copy of the index is not overwritten.
+     
+             :param kwargs: Extra arguments that might be present, but we ignore
+                 because they possibly came in from older rpc messages.
+             """
+             super(ContextBase, self).__init__(user=user_id, tenant=tenant_id,
+                                               is_admin=is_admin,
+                                               request_id=request_id)
+             self.user_name = user_name
+             self.tenant_name = tenant_name
+     
+             self.read_deleted = read_deleted
+             if not timestamp:
+                 timestamp = datetime.datetime.utcnow()
+             self.timestamp = timestamp
+             self._session = None
+             self.roles = roles or []
+             if self.is_admin is None:
+                 self.is_admin = policy.check_is_admin(self)
+             elif self.is_admin and load_admin_roles:
+                 # Ensure context is populated with admin roles
+                 admin_roles = policy.get_admin_roles()
+                 if admin_roles:
+                     self.roles = list(set(self.roles) | set(admin_roles))
+             # Allow openstack.common.log to access the context
+             if overwrite or not hasattr(local.store, 'context'):
+                 local.store.context = self
+     
+             # Log only once the context has been configured to prevent
+             # format errors.
+             if kwargs:
+                 LOG.debug(_('Arguments dropped when creating '
+                             'context: %s'), kwargs)
+
+check_is_adminの処理は以下のとおり。::
+
+     def check_is_admin(context):
+         """Verify context has admin rights according to policy settings."""
+         import pdb
+         pdb.set_trace()
+         init()
+         # the target is user-self                                                                                                      
+         credentials = context.to_dict()
+         target = credentials
+         # Backward compatibility: if ADMIN_CTX_POLICY is not                                                                           
+         # found, default to validating role:admin                                                                                      
+         admin_policy = (ADMIN_CTX_POLICY in policy._rules
+                         and ADMIN_CTX_POLICY or 'role:admin')
+         return policy.check(admin_policy, target, credentials)
+
+admin_policyあたりの処理は以下のような感じ::
+
+     (Pdb) p ADMIN_CTX_POLICY in policy._rules
+     True
+     (Pdb) p ADMIN_CTX_POLICY or 'role:admin'
+     'context_is_admin'
+     (Pdb) p (ADMIN_CTX_POLICY in policy._rules and ADMIN_CTX_POLICY or 'role:admin')
+     'context_is_admin'
+     (Pdb) 
+     
+     
+     
 認証の処理
 ============
 
