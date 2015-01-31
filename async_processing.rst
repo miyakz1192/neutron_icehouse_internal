@@ -5,8 +5,9 @@
 AsyncProcess(object):
 ======================
 
-プログラムを非同時実行するためのクラス
-neutron/agent/linux/async_process.py
+プログラムを非同時実行するためのクラス。ファイルは、
+"neutron/agent/linux/async_process.py"
+このクラスでは、非同期実行対象のプロセスをeventletのグリーンスレッド上で実行している。プロセスがネイティブスレッドをブロッキングしたりする場合の対処が行われているかどうかは、知らない（調査していない）。
 
 _reset_queues(キューのリセット)::
 
