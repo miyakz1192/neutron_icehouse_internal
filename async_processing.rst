@@ -8,7 +8,7 @@ AsyncProcess(object):
 プログラムを非同時実行するためのクラス
 neutron/agent/linux/async_process.py
 
-_reset_queues(キューのリセット):
+_reset_queues(キューのリセット)::
 
     def _reset_queues(self):
         self._stdout_lines = eventlet.queue.LightQueue()
