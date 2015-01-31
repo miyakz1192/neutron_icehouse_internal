@@ -14,7 +14,9 @@ _reset_queues(キューのリセット)::
         self._stdout_lines = eventlet.queue.LightQueue()
         self._stderr_lines = eventlet.queue.LightQueue()
 
-LightQueueの仕様がよくわからいので調査が必要。
+LightQueueの仕様は以下。
+This is a variant of Queue that behaves mostly like the standard Queue. It differs by not supporting the task_done or join methods, and is a little faster for not having that overhead.
+http://eventlet.net/doc/modules/queue.html
 
 start(スタート)::
 
@@ -57,6 +59,22 @@ stop(ストップ)::
 
 プロセスの起動とそれを監視するスレッドを起動しているっぽい。
 create_processでutils.subprocess_popenでプロセスを起動している。
+(self._read_stdout, self._read_stderr):の処理でreaderにmethodを関連付けている。
+
+デバッガーの実行結果がこれ。::
+
+(Pdb) p reader
+<bound method SimpleInterfaceMonitor._read_stdout of <neutron.agent.linux.ovsdb_monitor.SimpleInterfaceMonitor object at 0x7f1d347e4050>>
+
+直接reader()を実行すると以下のような結果になる。::
+
+(Pdb) p reader()
+2015-02-01 01:27:34.952 DEBUG neutron.agent.linux.ovsdb_monitor [req-ed8d2825-925e-44d5-a2df-e152389f081a None None] Output received from ovsdb monitor: {"data":[["731c9d21-997c-4627-b997-0457dc1b8800","initial","qg-4c2a68f0-86",1],["4fe309c8-548a-4d69-9983-748fb709a33e","initial","br-ex",65534],["0dfd59ce-edd4-4130-84d2-6409242e2167","initial","br-int",65534],["6528e179-30b2-4b68-9b06-b1bcda05a916","initial","tap0c8668f9-c9",2],["80bcf402-db14-4d19-bd14-466239699fdd","initial","qr-52f5d59d-20",1]],"headings":["row","action","name","ofport"]}
+ from (pid=22502) _read_stdout /opt/stack/neutron/neutron/agent/linux/ovsdb_monitor.py:53
+ '{"data":[["731c9d21-997c-4627-b997-0457dc1b8800","initial","qg-4c2a68f0-86",1],["4fe309c8-548a-4d69-9983-748fb709a33e","initial","br-ex",65534],["0dfd59ce-edd4-4130-84d2-6409242e2167","initial","br-int",65534],["6528e179-30b2-4b68-9b06-b1bcda05a916","initial","tap0c8668f9-c9",2],["80bcf402-db14-4d19-bd14-466239699fdd","initial","qr-52f5d59d-20",1]],"headings":["row","action","name","ofport"]}\n'
+ (Pdb) 
+
+要するに、self._read_stdoutが実行されている。_read_stderrは実行されないのかな。この実行例では標準エラーの結果は表示されなかった。
 
 プロセスの強制終了(kill)::
 
