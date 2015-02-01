@@ -31,4 +31,11 @@ network(uuid)とlocal vlan idのマッピングを保持。
                                                    physical_network,
                                                    segmentation_id)
 
- 
+rpc_loopでネットワーク処理が行われる条件
+==========================================
+
+以下のコード::
+
+  if self._agent_has_updates(polling_manager) or ovs_restarted:
+
+
