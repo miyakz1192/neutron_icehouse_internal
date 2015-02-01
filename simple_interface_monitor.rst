@@ -47,12 +47,16 @@ SimpleInterfaceMonitorの初期化として、OvsDbMonitorにInterfaceテーブ�
 
 標準出力にデータがある、かつ、is_activeがfalseの場合はupdateがあるという判定をする。is_activeがfalseの時に判定しているのは、上記コメントにもあるが、ovsの障害発生時(あるいは、killメソッドが呼び出されたあとなどに)に再度復旧動作を行うためだと思う(要調査)
 
+スタートするメソッド::
+
     def start(self, block=False, timeout=5):
         super(SimpleInterfaceMonitor, self).start()
         if block:
             eventlet.timeout.Timeout(timeout)
             while not self.is_active:
                 eventlet.sleep()
+
+OvsDbMonitorとの違いは、block引数がTrueの場合は、is_activeがTrueになるまで待つこと。
 
 強制終了::
 
