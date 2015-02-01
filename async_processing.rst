@@ -60,9 +60,9 @@ stop(ストップ)::
 
 プロセスの起動とそれを監視するスレッドを起動しているっぽい。
 create_processでutils.subprocess_popenでプロセスを起動している。
-(self._read_stdout, self._read_stderr):の処理でreaderにmethodを関連付けている。
+(self._read_stdout, self._read_stderr):の処理でreaderにmethodを関連付けている。その後、非同期実行対象のプロセスをeventletのグリーンスレッドとして起動する。
 
-デバッガーの実行結果がこれ。::
+readerの値を見てみる。デバッガーの実行結果がこれ。::
 
 (Pdb) p reader
 <bound method SimpleInterfaceMonitor._read_stdout of <neutron.agent.linux.ovsdb_monitor.SimpleInterfaceMonitor object at 0x7f1d347e4050>>
