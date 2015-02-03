@@ -51,7 +51,7 @@ ovsが再起動した場合、または、self._agent_has_updatesがTrueにな�
 
 polling_manager.is_polling_requiredがtrueになる条件は？
 
-1. self._is_polling_requiredがTrue、または、(InterfacePollingMinimizerの場合、ovsdbにinterfaceの更新があった場合にTrueになる)
+1. self._is_polling_required(InterfacePollingMinimizerの場合、ovsdbにinterfaceの更新があった場合にTrueになる)がTrue、または、
 2. self._force_pollingがTrue、または、
 3. self._polling_completedがFalseの場合
 
