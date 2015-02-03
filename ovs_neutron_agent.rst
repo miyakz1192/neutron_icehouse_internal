@@ -50,8 +50,8 @@ ovsが再起動した場合、または、self._agent_has_updatesがTrueにな�
 3. SGruleに更新があった場合 
 
 polling_manager.is_polling_requiredがtrueになる条件は？
-1. self._is_polling_requiredがTrue、または、
-(.InterfacePollingMinimizerの場合、ovsdbにinterfaceの更新があった場合にTrueになる)
+
+1. self._is_polling_requiredがTrue、または、(InterfacePollingMinimizerの場合、ovsdbにinterfaceの更新があった場合にTrueになる)
 2. self._force_pollingがTrue、または、
 3. self._polling_completedがFalseの場合
 
