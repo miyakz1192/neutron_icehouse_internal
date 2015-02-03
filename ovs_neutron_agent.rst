@@ -186,7 +186,7 @@ tunnel_syncを呼び出して、同期処理をおこなう。
 メソッド：scan_ports
 =====================
 
-ovs agentに登録されているport(registered_ports)と、更新されたポート(updated_ports)を元に、portをスキャンする。::
+ovs agentに登録されているport(registered_ports)を元に、更新されたportをスキャンする。復帰値は、現在br-intに接続されているポート、更新されたポート、追加されたポート、削除されたポートが格納されているport_infoという情報。このメソッドの第１引数は、ovs-agentに登録されている(現在認識している）ポート(IN)。このメソッドの第２引数は更新されたポートが入ってくる(OUT)。::
 
     def scan_ports(self, registered_ports, updated_ports=None):
         cur_ports = self.int_br.get_vif_port_set()
