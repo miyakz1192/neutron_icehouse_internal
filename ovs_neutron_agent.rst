@@ -38,19 +38,23 @@ rpc_loopでネットワーク処理が行われる条件
 
   if self._agent_has_updates(polling_manager) or ovs_restarted:
 
-_agent_has_updatesがキモになる。::
+ovsが再起動した場合、または、self._agent_has_updatesがTrueになった場合。::
 
     def _agent_has_updates(self, polling_manager):
         return (polling_manager.is_polling_required or
                 self.updated_ports or
                 self.sg_agent.firewall_refresh_needed())
 
+1. polling_manager.is_polling_requiredがTrue、または、
+2. portに更新があった場合、または、
+3. SGruleに更新があった場合 
+
 polling_manager.is_polling_requiredがtrueになる条件は？
 
-1) self._is_polling_requiredがTrue、または、
-(InterfacePollingMinimizerの場合、ovsdbにinterfaceの更新があった場合にTrueになる)
-2) self._force_pollingがTrue、または、
-3) self._polling_completedがFalseの場合
+1. self._is_polling_requiredがTrue、または、
+(.InterfacePollingMinimizerの場合、ovsdbにinterfaceの更新があった場合にTrueになる)
+2. self._force_pollingがTrue、または、
+3. self._polling_completedがFalseの場合
 
 self._is_polling_requiredがTrueになる条件(InterfacePollingMinimizer)の場合::
 
