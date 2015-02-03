@@ -50,7 +50,6 @@ ovsが再起動した場合、または、self._agent_has_updatesがTrueにな�
 3. SGruleに更新があった場合 
 
 polling_manager.is_polling_requiredがtrueになる条件は？
-
 1. self._is_polling_requiredがTrue、または、
 (.InterfacePollingMinimizerの場合、ovsdbにinterfaceの更新があった場合にTrueになる)
 2. self._force_pollingがTrue、または、
@@ -74,6 +73,7 @@ SimpleInterfaceMonitorのhas_updatesがTrueの場合::
         the absence of updates at the expense of potential false
         positives.
         """
-        return bool(list(self.iter_stdout())) or not self.is_active
+        return bool(list(self.iter_stdout())) or not self.is_active 
 
 "ovsdb-client monitor Interface name ofport"の結果にupdateがある(標準出力のqueueにデータが存在する)、または、is_active(ovsdb-clientコマンドからデータを受け取っている、かつ、killイベントが発火していない)がFalse。
+
