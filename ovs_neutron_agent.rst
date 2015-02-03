@@ -218,6 +218,54 @@ ovs agentに登録されているport(registered_ports)と、更新されたポ�
 cur_portsにbr-intに接続されているポートを格納。それを"current"のポートとする。registered_portsのポートのうち、VLANIDが変更されたポートをupdated_portsとし、"updated"とする。cur_portsとregistered_portsが等しい場合、port_infoを返す。cur_portsに存在して、registered_portsに存在しないポートが新しく追加されたポートなので、"added"とする。registered_portsに存在して、cur_portsに存在しないポートが削除されたポートなので、"removed"とする。
 
 
+メソッド：check_changed_vlans
+===============================
+
+registered_portsのうち、VLANIDが変更があったものを返却する::
+
+    def check_changed_vlans(self, registered_ports):
+        """Return ports which have lost their vlan tag.
+
+        The returned value is a set of port ids of the ports concerned by a
+        vlan tag loss.
+        """
+        port_tags = self.int_br.get_port_tag_dict()
+        changed_ports = set()
+        for lvm in self.local_vlan_map.values():
+            for port in registered_ports:
+                if (
+                    port in lvm.vif_ports
+                    and lvm.vif_ports[port].port_name in port_tags
+                    and port_tags[lvm.vif_ports[port].port_name] != lvm.vlan
+                ):
+                    LOG.info(
+                        _("Port '%(port_name)s' has lost "
+                            "its vlan tag '%(vlan_tag)d'!"),
+                        {'port_name': lvm.vif_ports[port].port_name,
+                         'vlan_tag': lvm.vlan}
+                    )
+                    changed_ports.add(port)
+        return changed_ports
+
+port_tagsの値はこんな感じ。インタフェース名とVLANIDの対が記録されている。::
+
+(Pdb) p port_tags
+{u'tap0c8668f9-c9': 1, u'qr-52f5d59d-20': 1}
+(Pdb) 
+(Pdb) self.local_vlan_map.values()
+[<neutron.plugins.openvswitch.agent.ovs_neutron_agent.LocalVLANMapping instance at 0x7fd1993f91b8>]
+(Pdb) 
+(Pdb) p lvm.vif_ports
+{u'52f5d59d-206f-4e42-be1d-e80f2e1d595a': <neutron.agent.linux.ovs_lib.VifPort instance at 0x7fd1993f9128>, u'0c8668f9-c9e8-44b3-bd57-71e0d9fc6778': <neutron.agent.linux.ovs_lib.VifPort instance at 0x7fd1993f92d8>}
+(Pdb) 
+(Pdb) p lvm.vif_ports[port].port_name
+u'qr-52f5d59d-20'
+(Pdb) p lvm.vif_ports[port]
+<neutron.agent.linux.ovs_lib.VifPort instance at 0x7fd1993f9128>
+(Pdb) p lvm.vif_ports[port].port_name
+u'qr-52f5d59d-20'
+(Pdb) 
+
 
 データ構造：local_vlan_map
 ===========================
@@ -225,10 +273,25 @@ cur_portsにbr-intに接続されているポートを格納。それを"current
 network(uuid)とlocal vlan idのマッピングを保持。
 以下のようなコードにて、作成::
 
+class LocalVLANMapping:
+    def __init__(self, vlan, network_type, physical_network, segmentation_id,vif_ports=None):
+        if vif_ports is None:
+            vif_ports = {}
+        self.vlan = vlan
+        self.network_type = network_type
+        self.physical_network = physical_network
+        self.segmentation_id = segmentation_id
+        self.vif_ports = vif_ports
+        # set of tunnel ports on which packets should be flooded
+        self.tun_ofports = set()
+
+network uuidのハッシュとして保持。::
+                
   self.local_vlan_map[net_uuid] = LocalVLANMapping(lvid,
                                                    network_type,
                                                    physical_network,
                                                    segmentation_id)
+
 
 rpc_loopでネットワーク処理が行われる条件
 ==========================================
