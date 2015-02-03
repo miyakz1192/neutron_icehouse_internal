@@ -249,22 +249,22 @@ registered_portsのうち、VLANIDが変更があったものを返却する::
 
 port_tagsの値はこんな感じ。インタフェース名とVLANIDの対が記録されている。::
 
-(Pdb) p port_tags
-{u'tap0c8668f9-c9': 1, u'qr-52f5d59d-20': 1}
-(Pdb) 
-(Pdb) self.local_vlan_map.values()
-[<neutron.plugins.openvswitch.agent.ovs_neutron_agent.LocalVLANMapping instance at 0x7fd1993f91b8>]
-(Pdb) 
-(Pdb) p lvm.vif_ports
-{u'52f5d59d-206f-4e42-be1d-e80f2e1d595a': <neutron.agent.linux.ovs_lib.VifPort instance at 0x7fd1993f9128>, u'0c8668f9-c9e8-44b3-bd57-71e0d9fc6778': <neutron.agent.linux.ovs_lib.VifPort instance at 0x7fd1993f92d8>}
-(Pdb) 
-(Pdb) p lvm.vif_ports[port].port_name
-u'qr-52f5d59d-20'
-(Pdb) p lvm.vif_ports[port]
-<neutron.agent.linux.ovs_lib.VifPort instance at 0x7fd1993f9128>
-(Pdb) p lvm.vif_ports[port].port_name
-u'qr-52f5d59d-20'
-(Pdb) 
+  (Pdb) p port_tags
+  {u'tap0c8668f9-c9': 1, u'qr-52f5d59d-20': 1}
+  (Pdb) 
+  (Pdb) self.local_vlan_map.values()
+  [<neutron.plugins.openvswitch.agent.ovs_neutron_agent.LocalVLANMapping instance at 0x7fd1993f91b8>]
+  (Pdb) 
+  (Pdb) p lvm.vif_ports
+  {u'52f5d59d-206f-4e42-be1d-e80f2e1d595a': <neutron.agent.linux.ovs_lib.VifPort instance at 0x7fd1993f9128>, u'0c8668f9-c9e8-44b3-bd57-71e0d9fc6778': <neutron.agent.linux.ovs_lib.VifPort instance at 0x7fd1993f92d8>}
+  (Pdb) 
+  (Pdb) p lvm.vif_ports[port].port_name
+  u'qr-52f5d59d-20'
+  (Pdb) p lvm.vif_ports[port]
+  <neutron.agent.linux.ovs_lib.VifPort instance at 0x7fd1993f9128>
+  (Pdb) p lvm.vif_ports[port].port_name
+  u'qr-52f5d59d-20'
+  (Pdb) 
 
 
 データ構造：local_vlan_map
@@ -273,18 +273,18 @@ u'qr-52f5d59d-20'
 network(uuid)とlocal vlan idのマッピングを保持。
 以下のようなコードにて、作成::
 
-class LocalVLANMapping:
-    def __init__(self, vlan, network_type, physical_network, segmentation_id,vif_ports=None):
-        if vif_ports is None:
-            vif_ports = {}
-        self.vlan = vlan
-        self.network_type = network_type
-        self.physical_network = physical_network
-        self.segmentation_id = segmentation_id
-        self.vif_ports = vif_ports
-        # set of tunnel ports on which packets should be flooded
-        self.tun_ofports = set()
-
+  class LocalVLANMapping:
+      def __init__(self, vlan, network_type, physical_network, segmentation_id,vif_ports=None):
+          if vif_ports is None:
+              vif_ports = {}
+          self.vlan = vlan
+          self.network_type = network_type
+          self.physical_network = physical_network
+          self.segmentation_id = segmentation_id
+          self.vif_ports = vif_ports
+          # set of tunnel ports on which packets should be flooded
+          self.tun_ofports = set()
+  
 network uuidのハッシュとして保持。::
                 
   self.local_vlan_map[net_uuid] = LocalVLANMapping(lvid,
