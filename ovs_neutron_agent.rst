@@ -95,6 +95,9 @@ tunnel_syncを呼び出して、同期処理をおこなう。
 次が、portの更新、SGruleの更新、ovsへのportの追加、あるいは、ovsの再起動が発生した場合の処理::
 
             if self._agent_has_updates(polling_manager) or ovs_restarted:
+
+_agent_has_updatesが実行される条件は、"rpc_loopでネットワーク処理が行われる条件"を参照。::
+
                 try:
                     LOG.debug(_("Agent rpc_loop - iteration:%(iter_num)d - "
                                 "starting polling. Elapsed:%(elapsed).3f"),
@@ -118,6 +121,9 @@ tunnel_syncを呼び出して、同期処理をおこなう。
                     if (self._port_info_has_changes(port_info) or
                         self.sg_agent.firewall_refresh_needed() or
                         ovs_restarted):
+
+port_infoにupdateまたは、added、または、deletedのものがある、または、SGのルールが更新された、または、ovsが再起動した場合は、以下のprocess_network_portsの処理に移行する。::
+
                         LOG.debug(_("Starting to process devices in:%s"),
                                   port_info)
                         # If treat devices fails - must resync with plugin
@@ -133,6 +139,10 @@ tunnel_syncを呼び出して、同期処理をおこなう。
                             len(port_info.get('updated', [])))
                         port_stats['regular']['removed'] = (
                             len(port_info.get('removed', [])))
+
+
+以下、コード::
+
                     ports = port_info['current']
                     # Treat ancillary devices if they exist
                     if self.ancillary_brs:
@@ -160,11 +170,15 @@ tunnel_syncを呼び出して、同期処理をおこなう。
                             sync = sync | rc
 
                     polling_manager.polling_completed()
+
+以下、コード::
                 except Exception:
                     LOG.exception(_("Error while processing VIF ports"))
                     # Put the ports back in self.updated_port
                     self.updated_ports |= updated_ports_copy
                     sync = True
+
+以下、コード::
 
             # sleep till end of polling interval
             elapsed = (time.time() - start)
@@ -186,7 +200,7 @@ tunnel_syncを呼び出して、同期処理をおこなう。
 メソッド：scan_ports
 =====================
 
-ovs agentに登録されているport(registered_ports)を元に、更新されたportをスキャンする。復帰値は、現在br-intに接続されているポート、更新されたポート、追加されたポート、削除されたポートが格納されているport_infoという情報。このメソッドの第１引数は、ovs-agentに登録されている(現在認識している）ポート(IN)。このメソッドの第２引数は更新されたポートが入ってくる(OUT)。::
+ovs agentに登録されているport(registered_ports)を元に、更新されたportをスキャンする。復帰値は、現在br-intに接続されているポート、更新されたポート、追加されたポート、削除されたポートが格納されているport_infoという情報(dict)。このメソッドの第１引数は、ovs-agentに登録されている(現在認識している）ポート(IN)。このメソッドの第２引数は更新されたポートが入ってくる(OUT)。::
 
     def scan_ports(self, registered_ports, updated_ports=None):
         cur_ports = self.int_br.get_vif_port_set()
@@ -338,4 +352,64 @@ SimpleInterfaceMonitorのhas_updatesがTrueの場合::
         return bool(list(self.iter_stdout())) or not self.is_active 
 
 "ovsdb-client monitor Interface name ofport"の結果にupdateがある(標準出力のqueueにデータが存在する)、または、is_active(ovsdb-clientコマンドからデータを受け取っている、かつ、killイベントが発火していない)がFalse。
+
+メソッド::process_network_ports
+=================================
+
+以下、コード::
+
+    def process_network_ports(self, port_info, ovs_restarted):
+        resync_a = False
+        resync_b = False
+        # TODO(salv-orlando): consider a solution for ensuring notifications
+        # are processed exactly in the same order in which they were
+        # received. This is tricky because there are two notification
+        # sources: the neutron server, and the ovs db monitor process
+        # If there is an exception while processing security groups ports
+        # will not be wired anyway, and a resync will be triggered
+        # TODO(salv-orlando): Optimize avoiding applying filters unnecessarily
+        # (eg: when there are no IP address changes)
+        self.sg_agent.setup_port_filters(port_info.get('added', set()),
+                                         port_info.get('updated', set()))
+        # VIF wiring needs to be performed always for 'new' devices.
+        # For updated ports, re-wiring is not needed in most cases, but needs
+        # to be performed anyway when the admin state of a device is changed.
+        # A device might be both in the 'added' and 'updated'
+        # list at the same time; avoid processing it twice.
+        devices_added_updated = (port_info.get('added', set()) |
+                                 port_info.get('updated', set()))
+        if devices_added_updated:
+            start = time.time()
+            try:
+                skipped_devices = self.treat_devices_added_or_updated(
+                    devices_added_updated, ovs_restarted)
+                LOG.debug(_("process_network_ports - iteration:%(iter_num)d -"
+                            "treat_devices_added_or_updated completed. "
+                            "Skipped %(num_skipped)d devices of "
+                            "%(num_current)d devices currently available. "
+                            "Time elapsed: %(elapsed).3f"),
+                          {'iter_num': self.iter_num,
+                           'num_skipped': len(skipped_devices),
+                           'num_current': len(port_info['current']),
+                           'elapsed': time.time() - start})
+                # Update the list of current ports storing only those which
+                # have been actually processed.
+                port_info['current'] = (port_info['current'] -
+                                        set(skipped_devices))
+            except DeviceListRetrievalError:
+                # Need to resync as there was an error with server
+                # communication.
+                LOG.exception(_("process_network_ports - iteration:%d - "
+                                "failure while retrieving port details "
+                                "from server"), self.iter_num)
+                resync_a = True
+        if 'removed' in port_info:
+            start = time.time()
+            resync_b = self.treat_devices_removed(port_info['removed'])
+            LOG.debug(_("process_network_ports - iteration:%(iter_num)d -"
+                        "treat_devices_removed completed in %(elapsed).3f"),
+                      {'iter_num': self.iter_num,
+                       'elapsed': time.time() - start})
+        # If one of the above opertaions fails => resync with plugin
+        return (resync_a | resync_b)
 
