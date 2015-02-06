@@ -371,6 +371,9 @@ SimpleInterfaceMonitorのhas_updatesがTrueの場合::
         # (eg: when there are no IP address changes)
         self.sg_agent.setup_port_filters(port_info.get('added', set()),
                                          port_info.get('updated', set()))
+
+self.sg_agent.setup_port_filtersで追加した（新規ポート）とVLAN IDが変更したポートについて、SGを設定する。なお、コメントにも記載されているが、SGの設定で例外が発生した場合は、flowの設定が行われずに、途中で処理を終了し、resyncフラグを立てる::
+
         # VIF wiring needs to be performed always for 'new' devices.
         # For updated ports, re-wiring is not needed in most cases, but needs
         # to be performed anyway when the admin state of a device is changed.
@@ -412,4 +415,70 @@ SimpleInterfaceMonitorのhas_updatesがTrueの場合::
                        'elapsed': time.time() - start})
         # If one of the above opertaions fails => resync with plugin
         return (resync_a | resync_b)
+
+
+メソッド::treat_devices_added_or_updated
+=========================================
+
+portが追加、または、更新された場合の処理を行う。::
+
+    def treat_devices_added_or_updated(self, devices, ovs_restarted):
+        skipped_devices = []
+        devices_details_list = []
+        for device in devices:
+            try:
+                # TODO(salv-orlando): Provide bulk API for retrieving
+                # details for all devices in one call
+                devices_details_list.append(
+                    self.plugin_rpc.get_device_details(
+                        self.context, device, self.agent_id))
+            except Exception as e:
+                LOG.debug(_("Unable to get port details for "
+                            "%(device)s: %(e)s"),
+                          {'device': device, 'e': e})
+                raise DeviceListRetrievalError(devices=devices, error=e)
+
+第２引数で指定された個々のportについて、その詳細情報をplugin_rpc.get_device_detailsで得る(APQPでのRPC呼び出し)::
+
+        for details in devices_details_list:
+            device = details['device']
+            LOG.debug(_("Processing port %s"), device)
+            port = self.int_br.get_vif_port_by_id(device)
+            if not port:
+                # The port disappeared and cannot be processed
+                LOG.info(_("Port %s was not found on the integration bridge "
+                           "and will therefore not be processed"), device)
+                skipped_devices.append(device)
+                continue
+
+            if 'port_id' in details:
+                LOG.info(_("Port %(device)s updated. Details: %(details)s"),
+                         {'device': device, 'details': details})
+                self.treat_vif_port(port, details['port_id'],
+                                    details['network_id'],
+                                    details['network_type'],
+                                    details['physical_network'],
+                                    details['segmentation_id'],
+                                    details['admin_state_up'],
+                                    ovs_restarted)
+                # update plugin about port status
+                # FIXME(salv-orlando): Failures while updating device status
+                # must be handled appropriately. Otherwise this might prevent
+                # neutron server from sending network-vif-* events to the nova
+                # API server, thus possibly preventing instance spawn.
+                if details.get('admin_state_up'):
+                    LOG.debug(_("Setting status for %s to UP"), device)
+                    self.plugin_rpc.update_device_up(
+                        self.context, device, self.agent_id, cfg.CONF.host)
+                else:
+                    LOG.debug(_("Setting status for %s to DOWN"), device)
+                    self.plugin_rpc.update_device_down(
+                        self.context, device, self.agent_id, cfg.CONF.host)
+                LOG.info(_("Configuration for device %s completed."), device)
+            else:
+                LOG.warn(_("Device %s not defined on plugin"), device)
+                if (port and port.ofport != -1):
+                    self.port_dead(port)
+        return skipped_devices
+
 
