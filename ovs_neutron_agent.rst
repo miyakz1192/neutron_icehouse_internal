@@ -482,3 +482,68 @@ portが追加、または、更新された場合の処理を行う。::
         return skipped_devices
 
 
+"for details in devices_details_list:" のところでデバッガーを仕掛けてみる::
+
+  (Pdb) p devices_details_list
+  [{u'admin_state_up': True, u'network_id': u'd7f7f51c-1cc1-48a5-b2fb-c85629e29882', u'segmentation_id': None, u'physical_network': None, u'device': u'f8201031-a730-459d-bd18-8a13c778059f', u'port_id': u'f8201031-a730-459d-bd18-8a13c778059f', u'network_type': u'local'}]
+  (Pdb) 
+
+device変数には、device_idが入る。device/device_idとportのidは同じ意味らしい。::
+
+  (Pdb) p device
+  u'f8201031-a730-459d-bd18-8a13c778059f'
+  (Pdb) 
+ 
+ちなみに、このポートはcompute::
+
+  miyakz@icehouse01:~/neutron_icehouse_internal$ neutron port-show f8201031-a730-459d-bd18-8a13c778059f
+  +-----------------------+---------------------------------------------------------------------------------+
+  | Field                 | Value                                                                           |
+  +-----------------------+---------------------------------------------------------------------------------+
+  | admin_state_up        | True                                                                            |
+  | allowed_address_pairs |                                                                                 |
+  | binding:vnic_type     | normal                                                                          |
+  | device_id             | f8321c34-1fe8-43c5-9059-2f24377a6ca7                                            |
+  | device_owner          | compute:None                                                                    |
+  | extra_dhcp_opts       |                                                   
+  | fixed_ips             | {"subnet_id": "d530a63f-5887-4e83-9f8e-afd888ceff91", "ip_address": "10.0.0.4"} |
+  | id                    | f8201031-a730-459d-bd18-8a13c778059f                                            |
+  | mac_address           | fa:16:3e:3f:91:62                                                               |
+  | name                  |                                                                                 |
+  | network_id            | d7f7f51c-1cc1-48a5-b2fb-c85629e29882                                            |
+  | security_groups       | 4bf7a0cb-d7bc-4b64-bc7e-2b30846bd025                                            |
+  | status                | BUILD                                                                           |
+  | tenant_id             | d66084a3d0d34e6e9f7f52d3ce8ebf7b                                                |
+  +-----------------------+---------------------------------------------------------------------------------+
+  miyakz@icehouse01:~/neutron_icehouse_internal$ 
+   
+
+self.int_br.get_vif_port_by_id(device)の復帰値について調査
+portは以下のような感じ::
+
+   (Pdb) p port
+   <neutron.agent.linux.ovs_lib.VifPort instance at 0x7ff0492c3878>
+   (Pdb) dir(port)
+   ['__doc__', '__init__', '__module__', '__str__', 'ofport', 'port_name', 'switch', 'vif_id', 'vif_mac']
+   (Pdb) 
+
+ portの各属性は以下のような感じ::
+
+  (Pdb) p port.ofport
+  3
+  (Pdb) p port.port_name
+  u'qvof8201031-a7'
+  (Pdb) p port.switch
+  <neutron.agent.linux.ovs_lib.OVSBridge object at 0x7ff04a48db50>
+  (Pdb) p port.vif_id
+  u'f8201031-a730-459d-bd18-8a13c778059f'
+  (Pdb) p port.vif_mac
+  u'fa:16:3e:3f:91:62'
+  (Pdb) 
+
+ofportがovs上の(OpenFlow上の)port番号。ovs自体がOpenFlowベースで作られているからofportというメンバ名なんだろうな。
+ちなみに、portがNoneの場合は、skipped_devicesに加えられる。
+その後、treat_vif_portでbr-int上にflowを設定する。
+設定後、admin_state_upならば、pluginのrpcを呼び出し、neutron-serverのDBをadmin_state_upに変更する。admin_state_upがfalseの場合は、
+同様にRPCを呼び出して設定する。
+ 
