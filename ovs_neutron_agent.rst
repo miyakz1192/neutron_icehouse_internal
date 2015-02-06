@@ -399,6 +399,9 @@ self.sg_agent.setup_port_filtersで追加した（新規ポート）とVLAN ID�
                 # have been actually processed.
                 port_info['current'] = (port_info['current'] -
                                         set(skipped_devices))
+
+ここでport_info['current']を更新する。現在のポートから、skipped_devicesを引いたものになる。::
+
             except DeviceListRetrievalError:
                 # Need to resync as there was an error with server
                 # communication.
@@ -406,6 +409,11 @@ self.sg_agent.setup_port_filtersで追加した（新規ポート）とVLAN ID�
                                 "failure while retrieving port details "
                                 "from server"), self.iter_num)
                 resync_a = True
+
+処理の最中に障害(DeviceListRetrievalError)が発生した場合は、resync_aフラグが立つ。
+ERROR_CASE:
+この障害が発生する箇所については(DeviceListRetrievalErrorについて)を参照::
+
         if 'removed' in port_info:
             start = time.time()
             resync_b = self.treat_devices_removed(port_info['removed'])
@@ -416,8 +424,11 @@ self.sg_agent.setup_port_filtersで追加した（新規ポート）とVLAN ID�
         # If one of the above opertaions fails => resync with plugin
         return (resync_a | resync_b)
 
+treat_devices_removedを実行して削除対象のportに対して、neutron-server上のport(DB上のデータ)でadmin_state_upをdown状態にして、SGとflowを削除する。
 
-メソッド::treat_devices_added_or_updated
+最後にresyncが必要かどうかを返す。
+
+メソッド:: treat_devices_added_or_updated
 =========================================
 
 portが追加、または、更新された場合の処理を行う。::
@@ -551,4 +562,47 @@ ERROR_CASE:
 self.int_br.get_vif_port_by_id(device)の復帰値がNoneになるケースとしては、instance作成時にnovaがneutronにportを
 作ったが、何らかの原因により(多くの場合はnova computeあるいは、vif driverの障害？）、ovsにメタ情報が書き込まれなかったことが
 考えられる。
- 
+
+DeviceListRetrievalErrorについて
+==================================
+
+1. treat_ancillary_devices_addedにおいてself.plugin_rpc.get_device_detailsで例外が発生した場合（AMQPの通信エラーなど）
+2. treat_devices_added_or_updatedにおいてself.plugin_rpc.get_device_detailsで例外が発生した場合(AMQPの通信エラーなど)
+
+
+
+メソッド::treat_devices_removed(self, devices)
+===============================================
+
+デバイスが削除された際の処理::
+
+   def treat_devices_removed(self, devices):
+        resync = False
+        self.sg_agent.remove_devices_filter(devices)
+        for device in devices:
+            LOG.info(_("Attachment %s removed"), device)
+            try:
+                self.plugin_rpc.update_device_down(self.context,
+                                                   device,
+                                                   self.agent_id,
+                                                   cfg.CONF.host)
+            except Exception as e:
+                LOG.debug(_("port_removed failed for %(device)s: %(e)s"),
+                          {'device': device, 'e': e})
+                resync = True
+                continue
+            self.port_unbound(device)
+        return resync
+
+SGの設定を削除して、plugin_rpcを使ってポートの状態をdown状態にする。その後、flowを削除する。
+
+ERROR_CASE:
+port_unboundで例外が発生した場合は？port_unboundの延長で結局実行しているランタイムはovs-vsctlコマンド。これでエラーが発生した場合は単にログだけを出して例外は発生しない。
+update_device_downでエラーが発生した場合はresyncの対処が必要と考えるけど、port_unbound処理（削除処理）で発生した例外は取り扱わず処理を突き進むという考え方らしい。
+
+ERROR_CASE:
+port_unboundでエラーが発生して、flowのゴミが残った時の影響は？
+
+ERROR_CASE:
+remove_devices_filterでエラーが発生した場合、呼び出し元でresyncのフラグを設定しないが問題はないか？
+
