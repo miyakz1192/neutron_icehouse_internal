@@ -546,4 +546,9 @@ ofportがovs上の(OpenFlow上の)port番号。ovs自体がOpenFlowベースで�
 その後、treat_vif_portでbr-int上にflowを設定する。
 設定後、admin_state_upならば、pluginのrpcを呼び出し、neutron-serverのDBをadmin_state_upに変更する。admin_state_upがfalseの場合は、
 同様にRPCを呼び出して設定する。
+
+ERROR_CASE:
+self.int_br.get_vif_port_by_id(device)の復帰値がNoneになるケースとしては、instance作成時にnovaがneutronにportを
+作ったが、何らかの原因により(多くの場合はnova computeあるいは、vif driverの障害？）、ovsにメタ情報が書き込まれなかったことが
+考えられる。
  
