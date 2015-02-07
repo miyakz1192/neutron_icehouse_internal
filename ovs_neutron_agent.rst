@@ -179,6 +179,7 @@ process_ancillary_network_portsを実行して、ancillary_portsの更新処理�
                     polling_manager.polling_completed()
 
 以下、例外処理::
+
                 except Exception:
                     LOG.exception(_("Error while processing VIF ports"))
                     # Put the ports back in self.updated_port
