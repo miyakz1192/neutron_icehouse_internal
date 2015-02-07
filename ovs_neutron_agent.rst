@@ -144,7 +144,7 @@ port_infoにupdateまたは、added、または、deletedのものがある、�
                             len(port_info.get('removed', [])))
 
 
-以下、コード::
+process_network_portsを実行し、SGの設定とflowの設定を行う。そして、port_statsを更新する。次にancillary_brs/ancillary_portsに関する処理を実施する。::
 
                     ports = port_info['current']
                     # Treat ancillary devices if they exist
@@ -156,6 +156,8 @@ port_infoにupdateまたは、added、または、deletedのものがある、�
                                     "Elapsed:%(elapsed).3f"),
                                   {'iter_num': self.iter_num,
                                    'elapsed': time.time() - start})
+
+ancillary_portsに更新があれば(port_infoがNoneでなければ)、次の処理を実施::
 
                         if port_info:
                             rc = self.process_ancillary_network_ports(
@@ -172,16 +174,18 @@ port_infoにupdateまたは、added、または、deletedのものがある、�
                                 len(port_info.get('removed', [])))
                             sync = sync | rc
 
+process_ancillary_network_portsを実行して、ancillary_portsの更新処理を実施。次に、polling_managerのpolling_completedを実行::
+
                     polling_manager.polling_completed()
 
-以下、コード::
+以下、例外処理::
                 except Exception:
                     LOG.exception(_("Error while processing VIF ports"))
                     # Put the ports back in self.updated_port
                     self.updated_ports |= updated_ports_copy
                     sync = True
 
-以下、コード::
+この例外処理では、self.updated_portsとupdated_ports_copyをunionして（和集合を作り出す)::
 
             # sleep till end of polling interval
             elapsed = (time.time() - start)
@@ -199,6 +203,8 @@ port_infoにupdateまたは、added、または、deletedのものがある、�
                           {'polling_interval': self.polling_interval,
                            'elapsed': elapsed})
             self.iter_num = self.iter_num + 1
+
+elapsed(経過時間）を計算し、polling_intervalより経過時間が短ければ、残りの時間をsleepする。そうでなければ（時間を超過した場合）、ログを出す。iter_numを+1する。
 
 メソッド：scan_ports
 =====================
@@ -359,7 +365,7 @@ SimpleInterfaceMonitorのhas_updatesがTrueの場合::
 メソッド::process_network_ports
 =================================
 
-以下、コード::
+portに対してSGの設定(iptablesへの展開)と、ovsへのflowの設定を行う。::
 
     def process_network_ports(self, port_info, ovs_restarted):
         resync_a = False
@@ -434,7 +440,7 @@ treat_devices_removedを実行して削除対象のportに対して、neutron-se
 メソッド:: treat_devices_added_or_updated
 =========================================
 
-portが追加、または、更新された場合の処理を行う。::
+portが追加、または、更新された場合の処理を行う。(neutron-serverのRPCを呼び出して、admin_state_upの設定と、ovsへのflowの設定)::
 
     def treat_devices_added_or_updated(self, devices, ovs_restarted):
         skipped_devices = []
@@ -577,7 +583,7 @@ DeviceListRetrievalErrorについて
 メソッド::treat_devices_removed(self, devices)
 ===============================================
 
-デバイスが削除された際の処理::
+デバイスが削除された際の処理。portに対するSGの削除(iptables上の展開)と、neutron-serverのRPC呼び出し(admin_state_up)と、ovsへのflowの設定を行う。::
 
    def treat_devices_removed(self, devices):
         resync = False
@@ -608,4 +614,128 @@ port_unboundでエラーが発生して、flowのゴミが残った時の影響�
 
 ERROR_CASE:
 remove_devices_filterでエラーが発生した場合、呼び出し元でresyncのフラグを設定しないが問題はないか？
+
+
+メソッド :: update_ancillary_ports
+==================================
+
+ancillary_brsに関連づいているportのうち、現在bridgeに接続しているport(current)、新規に追加されたport(add)、削除されたport(removed)をdictとして返却する。ただし、第２引数のregistered_portsと現在bridgeに接続しているportが等しければ（つまり、変更lがなければ)、Noneを返す。::
+
+    def update_ancillary_ports(self, registered_ports):
+        ports = set()
+        for bridge in self.ancillary_brs:
+            ports |= bridge.get_vif_port_set()
+
+        if ports == registered_ports:
+            return
+        added = ports - registered_ports
+        removed = registered_ports - ports
+        return {'current': ports,
+                'added': added,
+                'removed': removed}
+
+メソッド :: process_ancillary_network_ports
+============================================
+
+以下、コード::
+
+    def process_ancillary_network_ports(self, port_info):
+        resync_a = False
+        resync_b = False
+        if 'added' in port_info:
+            start = time.time()
+            try:
+                self.treat_ancillary_devices_added(port_info['added'])
+                LOG.debug(_("process_ancillary_network_ports - iteration: "
+                            "%(iter_num)d - treat_ancillary_devices_added "
+                            "completed in %(elapsed).3f"),
+                          {'iter_num': self.iter_num,
+                           'elapsed': time.time() - start})
+            except DeviceListRetrievalError:
+                # Need to resync as there was an error with server
+                # communication.
+                LOG.exception(_("process_ancillary_network_ports - "
+                                "iteration:%d - failure while retrieving "
+                                "port details from server"), self.iter_num)
+                resync_a = True
+
+treat_ancillary_devices_addedを実行して、ancillary_portsの追加処理を実施(neutron-serverのrpc呼び出しでポートの状態をupにするだけで、ovsへのflowの設定は一切実施しない)::
+
+        if 'removed' in port_info:
+            start = time.time()
+            resync_b = self.treat_ancillary_devices_removed(
+                port_info['removed'])
+            LOG.debug(_("process_ancillary_network_ports - iteration: "
+                        "%(iter_num)d - treat_ancillary_devices_removed "
+                        "completed in %(elapsed).3f"),
+                      {'iter_num': self.iter_num,
+                       'elapsed': time.time() - start})
+
+        # If one of the above opertaions fails => resync with plugin
+        return (resync_a | resync_b)
+
+treat_ancillary_devices_removedを呼び出す（こちらもRPCの実施、admin_state_up のdown)だけ。
+
+
+メソッド :: treat_ancillary_devices_added
+============================================
+
+ancillary_portsの追加処理を実施(neutron-serverのRPCを呼び出して、portの状態をupにするだけで、ovsのflow操作は一切行わない)::
+
+    def treat_ancillary_devices_added(self, devices):
+        devices_details_list = []
+        for device in devices:
+            try:
+                # TODO(salv-orlando): Provide bulk API for retrieving
+                # details for all devices in one call
+                devices_details_list.append(
+                    self.plugin_rpc.get_device_details(
+                        self.context, device, self.agent_id))
+            except Exception as e:
+                LOG.debug(_("Unable to get port details for "
+                            "%(device)s: %(e)s"),
+                          {'device': device, 'e': e})
+                raise DeviceListRetrievalError(devices=devices, error=e)
+
+
+neutron-serverのRPC(get_device_details）を呼び出す。これを各ポートに対して実施。もしループの途中で例外が発生した場合、DeviceListRetrievalErrorの例外を発生。::
+
+        for details in devices_details_list:
+            device = details['device']
+            LOG.info(_("Ancillary Port %s added"), device)
+
+            # update plugin about port status
+            self.plugin_rpc.update_device_up(self.context,
+                                             device,
+                                             self.agent_id,
+                                             cfg.CONF.host)
+
+各デバイスの詳細リストの個々において、neutron-serverのRPC(update_device_up)を呼び出し、up状態にする。
+
+メソッド :: treat_ancillary_devices_removed
+=============================================
+
+ancillary portsの削除処理を行う。なお、neutron-serverのRPC呼び出し（admin_state_upのdown）のみの実施でovsのflow操作は実施しない。::
+
+   def treat_ancillary_devices_removed(self, devices):
+        resync = False
+        for device in devices:
+            LOG.info(_("Attachment %s removed"), device)
+            try:
+                details = self.plugin_rpc.update_device_down(self.context,
+                                                             device,
+                                                             self.agent_id,
+                                                             cfg.CONF.host)
+            except Exception as e:
+                LOG.debug(_("port_removed failed for %(device)s: %(e)s"),
+                          {'device': device, 'e': e})
+                resync = True
+                continue
+            if details['exists']:
+                LOG.info(_("Port %s updated."), device)
+                # Nothing to do regarding local networking
+            else:
+                LOG.debug(_("Device %s not defined on plugin"), device)
+        return resync
+
 
