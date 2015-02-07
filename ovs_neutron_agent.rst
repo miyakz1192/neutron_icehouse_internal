@@ -116,6 +116,9 @@ _agent_has_updatesが実行される条件は、"rpc_loopでネットワーク�
                                 "Elapsed:%(elapsed).3f"),
                               {'iter_num': self.iter_num,
                                'elapsed': time.time() - start})
+
+更新されたポート(self.updated_ports)をupdated_ports_copyとしてコピーしておく。また、登録されているポート(reg_ports)をovsが再起動されたのならset()にして、そうでない場合はportsとする。その後、scan_portsを呼び出して、add/delete/update/currentのポートを検出する。::
+
                     # Secure and wire/unwire VIFs and update their status
                     # on Neutron server
                     if (self._port_info_has_changes(port_info) or
