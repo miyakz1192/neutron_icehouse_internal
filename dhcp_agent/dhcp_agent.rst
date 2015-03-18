@@ -84,3 +84,41 @@ needs_resyncがTrueにセットされる。::
         LOG.info(_("agent_updated by server side %s!"), payload)
 
 なお、neutron-serverがagent_updatedを呼ぶ契機は、このディレクトリの中の別資料を参照。
+
+
+def _populate_networks_cache(self):
+--------------------------------------
+
+Networkのキャッシュ情報を更新する。
+NetModelの詳細はdhcp.rstを参照。::
+
+
+    def _populate_networks_cache(self):
+        """Populate the networks cache when the DHCP-agent starts."""
+        try:
+            existing_networks = self.dhcp_driver_cls.existing_dhcp_networks(
+                self.conf,
+                self.root_helper
+            )
+            for net_id in existing_networks:
+                net = dhcp.NetModel(self.conf.use_namespaces,
+                                    {"id": net_id,
+                                     "subnets": [],
+                                     "ports": []})
+                self.cache.put(net)
+        except NotImplementedError:
+            # just go ahead with an empty networks cache
+            LOG.debug(
+                _("The '%s' DHCP-driver does not support retrieving of a "
+                  "list of existing networks"),
+                self.conf.dhcp_driver
+            )
+
+
+self.dhcp_driver_cls.existing_dhcp_networksを実行し、存在するネットワーク(existing_networksを得る)
+なお、dhcp_driver_clsはデフォルトではneutron.agent.linux.dhcp.Dnsmasqである。dnsmasqドライバが認識しているネットワークの一覧を取ってくる。そして、それを列挙して、NetModelクラスを作って、cacheに配置する。
+
+ちなみに、existing_dhcp_networksがdriverに実装されていない場合は、その例外は無視される（単にログがでるだけ）
+
+def call_driver(self, action, network, **action_kwargs):
+----------------------------------------------------------------
