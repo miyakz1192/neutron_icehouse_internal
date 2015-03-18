@@ -295,3 +295,66 @@ dhcp driver(デフォルトではdnsmasqドライバ)をのenableメソッドを
                         enable_metadata = False  # Don't trigger twice
                     self.cache.put(network)
                 break
+
+
+def disable_dhcp_helper(self, network_id):
+-----------------------------------------------
+
+指定したnetworkのdhcp-serverを無効にするためのヘルパ関数::
+
+    def disable_dhcp_helper(self, network_id):
+        """Disable DHCP for a network known to the agent."""
+        network = self.cache.get_network_by_id(network_id)
+        if network:
+            if (self.conf.use_namespaces and
+                self.conf.enable_isolated_metadata):
+                # NOTE(jschwarz): In the case where a network is deleted, all
+                # the subnets and ports are deleted before this function is
+                # called, so checking if 'should_enable_metadata' is True
+                # for any subnet is false logic here.
+                self.disable_isolated_metadata_proxy(network)
+            if self.call_driver('disable', network):
+                self.cache.remove(network)
+
+まず、キャッシュからnetwork情報を得て、もし、ネットワークの情報が存在する場合、以下の処理を実行。
+もし、network namespaceを使うかつ、metadata proxyが有効の場合は、指定されたネットワーク用のmetadata proxyを削除する。
+次に、dhcpドライバのdisableを呼び出し、それが成功すれば、キャッシュから、指定されたnetworkの情報を削除する。
+
+
+def refresh_dhcp_helper(self, network_id):
+----------------------------------------------
+
+dhcp-serverの更新の際に呼ばれる関数::
+
+    def refresh_dhcp_helper(self, network_id):
+        """Refresh or disable DHCP for a network depending on the current state
+        of the network.
+        """
+        old_network = self.cache.get_network_by_id(network_id)
+        if not old_network:
+            # DHCP current not running for network.
+            return self.enable_dhcp_helper(network_id)
+
+        network = self.safe_get_network_info(network_id)
+        if not network:
+            return
+
+        old_cidrs = set(s.cidr for s in old_network.subnets if s.enable_dhcp)
+        new_cidrs = set(s.cidr for s in network.subnets if s.enable_dhcp)
+
+        if new_cidrs and old_cidrs == new_cidrs:
+            self.call_driver('reload_allocations', network)
+            self.cache.put(network)
+        elif new_cidrs:
+            if self.call_driver('restart', network):
+                self.cache.put(network)
+        else:
+            self.disable_dhcp_helper(network.id)
+
+引数で指定されたnetwork(network_id)をキャッシュから取得し、もし、キャッシュに無い場合はdhcp-serverを作成してキャッシュにのせる。neutron-serverから引数で指定されたnetworkの情報を持ってきて、old_cidrsとnew_cidrsを比較。等しければdhcpドライバのreload_allocationsを呼び、違えば、restartを呼ぶ。それ以外は引数で指定されたnetworkのdhcpをdisableする。
+
+ERROR_CASE: 異常系と呼べるかわからないが、引数で指定されたnetworkがサブネットが存在しない状態から、存在する状態に変化した際に、dhcp-serverが作られないのではないかと考える。そのようなケースにこの関数が呼ばれなければ問題ないと思うが。
+
+
+
+
