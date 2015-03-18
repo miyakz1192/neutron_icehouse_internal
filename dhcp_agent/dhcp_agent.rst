@@ -118,7 +118,180 @@ NetModelの詳細はdhcp.rstを参照。::
 self.dhcp_driver_cls.existing_dhcp_networksを実行し、存在するネットワーク(existing_networksを得る)
 なお、dhcp_driver_clsはデフォルトではneutron.agent.linux.dhcp.Dnsmasqである。dnsmasqドライバが認識しているネットワークの一覧を取ってくる。そして、それを列挙して、NetModelクラスを作って、cacheに配置する。
 
+なお、dnsmasqドライバについては、dhcp.rstを参照。
+
 ちなみに、existing_dhcp_networksがdriverに実装されていない場合は、その例外は無視される（単にログがでるだけ）
 
 def call_driver(self, action, network, **action_kwargs):
 ----------------------------------------------------------------
+
+call_driverは、dhcpドライバ(デフォルトではdnsmasqドライバ)の任意のactionを呼び出す。::
+
+    def call_driver(self, action, network, **action_kwargs):
+        """Invoke an action on a DHCP driver instance."""
+        LOG.debug(_('Calling driver for network: %(net)s action: %(action)s'),
+                  {'net': network.id, 'action': action})
+        try:
+            # the Driver expects something that is duck typed similar to
+            # the base models.
+            driver = self.dhcp_driver_cls(self.conf,
+                                          network,
+                                          self.root_helper,
+                                          self.dhcp_version,
+                                          self.plugin_rpc)
+
+            getattr(driver, action)(**action_kwargs)
+            return True
+        except exceptions.Conflict:
+            # No need to resync here, the agent will receive the event related
+            # to a status update for the network
+            LOG.warning(_('Unable to %(action)s dhcp for %(net_id)s: there is '
+                          'a conflict with its current state; please check '
+                          'that the network and/or its subnet(s) still exist.')
+                        % {'net_id': network.id, 'action': action})
+        except Exception as e:
+            self.needs_resync = True
+            if (isinstance(e, common.RemoteError)
+                and e.exc_type == 'NetworkNotFound'
+                or isinstance(e, exceptions.NetworkNotFound)):
+                LOG.warning(_("Network %s has been deleted."), network.id)
+            else:
+                LOG.exception(_('Unable to %(action)s dhcp for %(net_id)s.')
+                              % {'net_id': network.id, 'action': action})
+
+Conflictエラーが発生した場合はそのエラーはログに出力され、無視される。また、それ以外のエラーの場合は、needs_resyncがセットされる。RemoteErrorの場合はNetwork has been deletedというメッセージがでて、それ以外の場合のエラーもログにでるだけで、処理としては続行する。
+
+TODO: dnsmasqドライバがRemoteErrorを送出するか？
+
+
+def sync_state(self):
+--------------------------
+
+dhcp-agentとneutron-serverのネットワークの同期をとって、dnsmasqを起動するメソッド::
+
+
+    @utils.synchronized('dhcp-agent')
+    def sync_state(self):
+        """Sync the local DHCP state with Neutron."""
+        LOG.info(_('Synchronizing state'))
+        pool = eventlet.GreenPool(cfg.CONF.num_sync_threads)
+        known_network_ids = set(self.cache.get_network_ids())
+
+        try:
+            active_networks = self.plugin_rpc.get_active_networks_info()
+            active_network_ids = set(network.id for network in active_networks)
+            for deleted_id in known_network_ids - active_network_ids:
+                try:
+                    self.disable_dhcp_helper(deleted_id)
+                except Exception:
+                    self.needs_resync = True
+                    LOG.exception(_('Unable to sync network state on deleted '
+                                    'network %s'), deleted_id)
+
+            for network in active_networks:
+                pool.spawn(self.safe_configure_dhcp_for_network, network)
+            pool.waitall()
+            LOG.info(_('Synchronizing state complete'))
+
+        except Exception:
+            self.needs_resync = True
+            LOG.exception(_('Unable to sync network state.'))
+
+utils.synchronizedを使っており、これはdhcp-agnetというファイルロックを取る。つまり、同一サーバ内であれば、このメソッドは排他動作するってことになっている。
+
+まず、このメソッドでは、最初にneutron-serverからアクティブなネットワークの一覧を取得する。そして、active_network_idsにそのIDの一覧を入れる。
+
+known_network_ids(dnsmasqドライバが知っているネットワークのID)から、active_network_idsを引いたものが、消去すべきdnsmasqという結果になるので、for deletedのループでself.disable_dhcp_helperを呼び出してdnsmasqを消去する。
+
+そして、active_networksについて、self.safe_configure_dhcp_for_networkを実行する。なお、eventletのスレッドを利用しているため、個々の処理については並行して行われるものと推測される。
+
+[参考]
+http://eventlet.net/doc/basic_usage.html
+
+http://eventlet.net/doc/modules/greenpool.html#eventlet.greenpool.GreenPool
+
+
+ERROR_CASE:これはパフォーマンスの問題が発生する。neutron-serverからすべてのアクティブなネットワークを取ってくる方式は、パフォーマンスに問題が発生する。known_network_idsをフィルター指定するなど、問い合わせに工夫をする必要がある。
+
+def _periodic_resync_helper(self):
+-------------------------------------
+
+定期的にループして、needs_resyncが立っている場合はsync_stateを実行する::
+
+    def _periodic_resync_helper(self):
+        """Resync the dhcp state at the configured interval."""
+        while True:
+            eventlet.sleep(self.conf.resync_interval)
+            if self.needs_resync:
+                self.needs_resync = False
+                self.sync_state()
+
+
+def safe_get_network_info(self, network_id):
+----------------------------------------------------
+
+安全にネットワーク情報を取ってくるメソッド。ネットワーク情報の取得に失敗した場合は、needs_resyncを立てる。::
+
+    def safe_get_network_info(self, network_id):
+        try:
+            network = self.plugin_rpc.get_network_info(network_id)
+            if not network:
+                LOG.warn(_('Network %s has been deleted.'), network_id)
+            return network
+        except Exception:
+            self.needs_resync = True
+            LOG.exception(_('Network %s info call failed.'), network_id)
+
+def enable_dhcp_helper(self, network_id):
+---------------------------------------------
+
+self.safe_get_network_infoを実行して、得たnetwork_idを元に、self.configure_dhcp_for_networkを実行する。
+
+    def enable_dhcp_helper(self, network_id):
+        """Enable DHCP for a network that meets enabling criteria."""
+        network = self.safe_get_network_info(network_id)
+        if network:
+            self.configure_dhcp_for_network(network)
+
+
+def safe_configure_dhcp_for_network(self, network):
+------------------------------------------------------------
+
+self.configure_dhcp_for_networkを実行するだけ。::
+
+      def safe_configure_dhcp_for_network(self, network):
+          try:
+              self.configure_dhcp_for_network(network)
+          except (exceptions.NetworkNotFound, RuntimeError):
+              LOG.warn(_('Network %s may have been deleted and its resources '
+                         'may have already been disposed.'), network.id)
+  
+def configure_dhcp_for_network(self, network):
+------------------------------------------------------------
+
+dhcp driver(デフォルトではdnsmasqドライバ)をのenableメソッドを呼び出す。call_driverのあと、enable_metadataがTrueであれば、metadata proxyを起動する様子。その後、キャッシュを更新する。
+
+なお、dhcpサーバが起動する条件は結構あって、
+
+1. network.admin_state_upがTrue
+2. networkにsubnetが設定されている
+3. subnetのenable_dhcpがTrue
+4. subnetのip_versionが4
+
+となる。コードは以下の通り。::
+
+    def configure_dhcp_for_network(self, network):
+        if not network.admin_state_up:
+            return
+
+        enable_metadata = self.dhcp_driver_cls.should_enable_metadata(
+            self.conf, network)
+
+        for subnet in network.subnets:
+            if subnet.enable_dhcp and subnet.ip_version == 4:
+                if self.call_driver('enable', network):
+                    if self.conf.use_namespaces and enable_metadata:
+                        self.enable_isolated_metadata_proxy(network)
+                        enable_metadata = False  # Don't trigger twice
+                    self.cache.put(network)
+                break
