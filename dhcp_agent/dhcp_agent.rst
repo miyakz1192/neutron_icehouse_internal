@@ -444,12 +444,38 @@ def subnet_delete_end(self, context, payload):
         if network:
             self.refresh_dhcp_helper(network.id)
 
+def port_update_end(self, context, payload):
+--------------------------------------------------
+
+portのupdate時に呼び出される関数::
+
+    @utils.synchronized('dhcp-agent')
+    def port_update_end(self, context, payload):
+        """Handle the port.update.end notification event."""
+        updated_port = dhcp.DictModel(payload['port'])
+        network = self.cache.get_network_by_id(updated_port.network_id)
+        if network:
+            self.cache.put_port(updated_port)
+            self.call_driver('reload_allocations', network)
+
+portに関連づくnetwork情報がキャッシュに存在する場合は、キャッシュにupdated_portが代入されたあと、driverのreload_allocationsが呼ばれる。
+なお、port_update_endとport_create_endは同じ定義。
+
+ERROR_CASE:networkに関連づくdhcpが何らかの理由により作成が失敗した場合は、port_update_endは何も起こらない。その後、sync_stateで復活すれば良いのだが、どうなるんだろう。configure_dhcp_for_networkでエラーが発生してもneeds_resyncフラグが立たないので、sync_stateは発生しない。
 
 
+def port_delete_end(self, context, payload):
+--------------------------------------------------
 
+portが削除された際に呼び出される関数::
 
-
-
-
+    @utils.synchronized('dhcp-agent')
+    def port_delete_end(self, context, payload):
+        """Handle the port.delete.end notification event."""
+        port = self.cache.get_port_by_id(payload['port_id'])
+        if port:
+            network = self.cache.get_network_by_id(port.network_id)
+            self.cache.remove_port(port)
+            self.call_driver('reload_allocations', network)
 
 
