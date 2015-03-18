@@ -245,7 +245,7 @@ def safe_get_network_info(self, network_id):
 def enable_dhcp_helper(self, network_id):
 ---------------------------------------------
 
-self.safe_get_network_infoを実行して、得たnetwork_idを元に、self.configure_dhcp_for_networkを実行する。
+self.safe_get_network_infoを実行して、得たnetwork_idを元に、self.configure_dhcp_for_networkを実行する。::
 
     def enable_dhcp_helper(self, network_id):
         """Enable DHCP for a network that meets enabling criteria."""
@@ -354,6 +354,101 @@ dhcp-serverの更新の際に呼ばれる関数::
 引数で指定されたnetwork(network_id)をキャッシュから取得し、もし、キャッシュに無い場合はdhcp-serverを作成してキャッシュにのせる。neutron-serverから引数で指定されたnetworkの情報を持ってきて、old_cidrsとnew_cidrsを比較。等しければdhcpドライバのreload_allocationsを呼び、違えば、restartを呼ぶ。それ以外は引数で指定されたnetworkのdhcpをdisableする。
 
 ERROR_CASE: 異常系と呼べるかわからないが、引数で指定されたnetworkがサブネットが存在しない状態から、存在する状態に変化した際に、dhcp-serverが作られないのではないかと考える。そのようなケースにこの関数が呼ばれなければ問題ないと思うが。
+->あとから気づいたが、create_network_endではrefresh_dhcp_helperは呼び出されないし、networkのサブネットが無い状態から存在する状態への遷移はsubnet_create_endが呼び出される。この時は、refresh_dhcp_helperが呼び出されるが、以下の部分が実行されるだけなので、問題ない。::
+
+        old_network = self.cache.get_network_by_id(network_id)
+        if not old_network:
+            # DHCP current not running for network.
+            return self.enable_dhcp_helper(network_id)
+
+def network_create_end(self, context, payload):
+------------------------------------------------------
+
+networkの作成の終わりに呼び出される関数::
+
+    @utils.synchronized('dhcp-agent')
+    def network_create_end(self, context, payload):
+        """Handle the network.create.end notification event."""
+        network_id = payload['network']['id']
+        self.enable_dhcp_helper(network_id)
+
+これの呼び出し元は以下。
+neutron/api/rpc/agentnotifiers/dhcp_rpc_agent_api.py:62:                    context, 'network_create_end',
+
+_schedule_networkということで、スケジューラの何かのタイミング。networkのスケジューリングについては、scheduler/network/network.rstを参照。
+
+neutron/api/rpc/agentnotifiers/dhcp_rpc_agent_api.py:107:        cast_required = method != 'network_create_end'
+notifyの延長で呼び出される。このnotifyの呼び出し元は以下。
+"neutron/plugins/ml2/plugin.py"の_send_dhcp_notificationの呼び出し元。
+
+1. def update
+2. def create(今回はここに該当するものと思われる)
+3. def delete
+
+neutron/api/rpc/agentnotifiers/dhcp_rpc_agent_api.py:148:        self._cast_message(context, 'network_create_end',
+
+これは実際にagentのrpcを呼び出す箇所。
+
+ERROR_CASE: サブネットが無いとdhcp-serverを創りださないくせに、network_endが定義されているのはなぜだろう
+
+def network_update_end(self, context, payload):
+---------------------------------------------------
+
+ネットワークの更新の際に呼び出される関数::
+
+    @utils.synchronized('dhcp-agent')
+    def network_update_end(self, context, payload):
+        """Handle the network.update.end notification event."""
+        network_id = payload['network']['id']
+        if payload['network']['admin_state_up']:
+            self.enable_dhcp_helper(network_id)
+        else:
+            self.disable_dhcp_helper(network_id)
+
+
+def network_delete_end(self, context, payload):
+-------------------------------------------------
+
+ネットワークの削除の際に呼び出される関数::
+
+    @utils.synchronized('dhcp-agent')
+    def network_delete_end(self, context, payload):
+        """Handle the network.delete.end notification event."""
+        self.disable_dhcp_helper(payload['network_id'])
+
+def subnet_update_end(self, context, payload):
+---------------------------------------------------
+
+サブネットの更新時に呼び出される関数::
+
+    @utils.synchronized('dhcp-agent')
+    def subnet_update_end(self, context, payload):
+        """Handle the subnet.update.end notification event."""
+        network_id = payload['subnet']['network_id']
+        self.refresh_dhcp_helper(network_id)
+
+network_updateだと、admin_state_upがTrueの場合はself.enable_dhcp_helperが呼び出されていたが、subnet_update_endの場合は、self.refresh_dhcp_helperが呼び出される。
+
+なお、subnet_update_endとsubnet_create_endは同じ定義である。
+
+def subnet_delete_end(self, context, payload):
+-----------------------------------------------------
+
+サブネットの削除時に呼び出される関数::
+
+    @utils.synchronized('dhcp-agent')
+    def subnet_delete_end(self, context, payload):
+        """Handle the subnet.delete.end notification event."""
+        subnet_id = payload['subnet_id']
+        network = self.cache.get_network_by_subnet_id(subnet_id)
+        if network:
+            self.refresh_dhcp_helper(network.id)
+
+
+
+
+
+
 
 
 
