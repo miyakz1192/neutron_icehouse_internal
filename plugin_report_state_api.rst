@@ -21,5 +21,5 @@ agentのneutron-serverに対する定期的なレポートを受け持つclass::
           else:
               return self.cast(context, msg, topic=self.topic)
 
-report_stateでは、agent_stateを指定して、timeutils.strtime()を引数に与えて実行している.dhcp-agentではuse_callを明示的にTrueに設定している(neutron-serverからの応答を待つ)。timeutilsに関しては別紙を参照。
+report_stateでは、agent_stateを指定して、timeutils.strtime()を引数に与えて実行している.dhcp-agentではuse_callを明示的にTrueを設定して一回目のレポートを実行したあと(neutron-serverからの応答を待つ)、Falseを設定しているtimeutilsに関しては別紙を参照。
 
