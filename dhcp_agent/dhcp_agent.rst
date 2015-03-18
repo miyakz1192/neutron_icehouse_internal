@@ -31,3 +31,6 @@ dhcp-agentからneutron-serverに対する定期レポートを受け持つク�
 self.agent_stateにレポートしたい内容を詰め込んで、FixedIntervalLoopingCallによって定期的にレポート処理が行われるらしい。なお、constantsのdictに例えば、"sample" : "aaa"でも記載してやると、neutron-serverに通達され、neutron agent-showでsample: aaaを見ることができる。
  
 なお、PluginReportStateAPIについては別レポートを参照。
+FixedIntervalLoopingCallを呼び出し、_report_stateを登録する。以降、greenthreadによって定期実行され、dhcp-agentの状態がneutron-serverに通知される。
+FixedIntervalLoopingCallについては別紙参照
+
