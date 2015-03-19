@@ -592,8 +592,67 @@ DhcpPluginApiはneutron-serverの以下のRPCを呼び出すメソッドが実�
 6. release_dhcp_port
 7. release_port_fixed_ip(dhcp_agent.pyでは未使用)
 
+class NetworkCache(object):
+===============================
+
+ネットワーク情報(network,port,subnet)をキャッシュするクラス。
+
+ERROR_CASE:怪しいと思われるところは、networkに関連づくsubnetが減少した場合(例：1->0)、キャッシュにサブネットのゴミが残り続けるということ。
+以下、subnet_delete_endのコード。::
+
+    @utils.synchronized('dhcp-agent')
+    def subnet_delete_end(self, context, payload):
+        """Handle the subnet.delete.end notification event."""
+        subnet_id = payload['subnet_id']
+        network = self.cache.get_network_by_subnet_id(subnet_id)
+        if network:
+            self.refresh_dhcp_helper(network.id)
+
+キャッシュからnetwork情報が得られ、refresh_dhcp_helperが呼び出される。refresh_dhcp_helperのコードは以下。::
+
+    def refresh_dhcp_helper(self, network_id):
+        """Refresh or disable DHCP for a network depending on the current state
+        of the network.
+        """
+        old_network = self.cache.get_network_by_id(network_id)
+        if not old_network:
+            # DHCP current not running for network.
+            return self.enable_dhcp_helper(network_id)
+
+        network = self.safe_get_network_info(network_id)
+        if not network:
+            return
+
+        old_cidrs = set(s.cidr for s in old_network.subnets if s.enable_dhcp)
+        new_cidrs = set(s.cidr for s in network.subnets if s.enable_dhcp)
+
+        if new_cidrs and old_cidrs == new_cidrs:
+            self.call_driver('reload_allocations', network)
+            self.cache.put(network)
+        elif new_cidrs:
+            if self.call_driver('restart', network):
+                self.cache.put(network)
+        else:
+            self.disable_dhcp_helper(network.id)
+
+変更後、networkに関連するサブネットの数が同じでも異なっても、cache.putが呼び出される。putのコードは以下。::
 
 
+    def put(self, network):
+        if network.id in self.cache:
+            self.remove(self.cache[network.id])
+
+        self.cache[network.id] = network
+
+        for subnet in network.subnets:
+            self.subnet_lookup[subnet.id] = network.id
+
+        for port in network.ports:
+            self.port_lookup[port.id] = network.id
 
 
+このコードではsubnet_lookupから、サブネット減少対象のnetworkを指すデータを消去していないので、ゴミが残る。例えば、networkにsubnetが1つある状態で、それを消去した場合、for subnet in network.subnetsが実行されないため、subnet_lookupにゴミが残り続ける。
 
+このバグの影響としては、_report_stateで返す情報に嘘が入り込むことだ。neutron agent-showの結果を見ているアプリケーションがあれば、影響を受けることになる。
+
+なお、dhcp-agentのdnsmasq制御としては、あたらく生成したsubnetが過去と同じuuidにならない限りは、このバグの影響を受けないものと考えられる。
