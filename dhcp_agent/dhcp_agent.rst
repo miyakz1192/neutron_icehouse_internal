@@ -3,7 +3,7 @@ dhcp-agentの解析
 ======================================================
 
 class DhcpAgentWithStateReport(DhcpAgent):
----------------------------------------------
+===============================================
 
 dhcp-agentからneutron-serverに対する定期レポートを受け持つクラス。::
 
@@ -30,7 +30,7 @@ dhcp-agentからneutron-serverに対する定期レポートを受け持つク�
 
 self.agent_stateにレポートしたい内容を詰め込んで、FixedIntervalLoopingCallによって定期的にレポート処理が行われるらしい。なお、constantsのdictに例えば、"sample" : "aaa"でも記載してやると、neutron-serverに通達され、neutron agent-showでsample: aaaを見ることができる。
  
-なお、PluginReportStateAPIについては別レポートを参照。
+なお、PluginReportStateAPIについては別レポートを参照(plugin_report_state_api.rst) 。
 FixedIntervalLoopingCallを呼び出し、_report_stateを登録する。以降、greenthreadによって定期実行され、dhcp-agentの状態がneutron-serverに通知される。
 FixedIntervalLoopingCallについては別紙参照.greenthreadで_report_stateが定期的に動作する。 
 
@@ -83,8 +83,12 @@ needs_resyncがTrueにセットされる。::
         self.needs_resync = True
         LOG.info(_("agent_updated by server side %s!"), payload)
 
-なお、neutron-serverがagent_updatedを呼ぶ契機は、このディレクトリの中の別資料を参照。
+なお、neutron-serverがagent_updatedを呼ぶ契機は、このディレクトリの中の別資料を参照(agent_updated.rst)。
 
+class DhcpAgent(manager.Manager):
+=======================================
+
+DHCP agnetを表現するクラス。
 
 def _populate_networks_cache(self):
 --------------------------------------
@@ -376,10 +380,11 @@ networkの作成の終わりに呼び出される関数::
 neutron/api/rpc/agentnotifiers/dhcp_rpc_agent_api.py:62:                    context, 'network_create_end',
 
 _schedule_networkということで、スケジューラの何かのタイミング。networkのスケジューリングについては、scheduler/network/network.rstを参照。
+TODO: scheduler/network/network.rstの編集
 
 neutron/api/rpc/agentnotifiers/dhcp_rpc_agent_api.py:107:        cast_required = method != 'network_create_end'
 notifyの延長で呼び出される。このnotifyの呼び出し元は以下。
-"neutron/plugins/ml2/plugin.py"の_send_dhcp_notificationの呼び出し元。
+"neutron/api/v2/base.py"の_send_dhcp_notificationの呼び出し元。
 
 1. def update
 2. def create(今回はここに該当するものと思われる)
@@ -431,6 +436,15 @@ network_updateだと、admin_state_upがTrueの場合はself.enable_dhcp_helper�
 
 なお、subnet_update_endとsubnet_create_endは同じ定義である。
 
+これの呼び出し元は以下。
+"neutron/api/v2/base.py"の_send_dhcp_notificationの呼び出し元。
+
+1. def update
+2. def create
+3. def delete
+
+要するにnetworkと同じ。
+
 def subnet_delete_end(self, context, payload):
 -----------------------------------------------------
 
@@ -463,6 +477,14 @@ portに関連づくnetwork情報がキャッシュに存在する場合は、キ
 
 ERROR_CASE:networkに関連づくdhcpが何らかの理由により作成が失敗した場合は、port_update_endは何も起こらない。その後、sync_stateで復活すれば良いのだが、どうなるんだろう。configure_dhcp_for_networkでエラーが発生してもneeds_resyncフラグが立たないので、sync_stateは発生しない。
 
+これの呼び出し元は以下。
+"neutron/api/v2/base.py"の_send_dhcp_notificationの呼び出し元。
+
+1. def update
+2. def create
+3. def delete
+
+要するにnetworkと同じ。
 
 def port_delete_end(self, context, payload):
 --------------------------------------------------
@@ -478,4 +500,73 @@ portが削除された際に呼び出される関数::
             self.cache.remove_port(port)
             self.call_driver('reload_allocations', network)
 
+def enable_isolated_metadata_proxy(self, network):
+--------------------------------------------------------
 
+dhcp-serverのnetwork namespaceにmetadata proxyを起動する。::
+
+    def enable_isolated_metadata_proxy(self, network):
+
+        # The proxy might work for either a single network
+        # or all the networks connected via a router
+        # to the one passed as a parameter
+        neutron_lookup_param = '--network_id=%s' % network.id
+        # When the metadata network is enabled, the proxy might
+        # be started for the router attached to the network
+        if self.conf.enable_metadata_network:
+            router_ports = [port for port in network.ports
+                            if (port.device_owner ==
+                                constants.DEVICE_OWNER_ROUTER_INTF)]
+            if router_ports:
+                # Multiple router ports should not be allowed
+                if len(router_ports) > 1:
+                    LOG.warning(_("%(port_num)d router ports found on the "
+                                  "metadata access network. Only the port "
+                                  "%(port_id)s, for router %(router_id)s "
+                                  "will be considered"),
+                                {'port_num': len(router_ports),
+                                 'port_id': router_ports[0].id,
+                                 'router_id': router_ports[0].device_id})
+                neutron_lookup_param = ('--router_id=%s' %
+                                        router_ports[0].device_id)
+
+        def callback(pid_file):
+            metadata_proxy_socket = cfg.CONF.metadata_proxy_socket
+            proxy_cmd = ['neutron-ns-metadata-proxy',
+                         '--pid_file=%s' % pid_file,
+                         '--metadata_proxy_socket=%s' % metadata_proxy_socket,
+                         neutron_lookup_param,
+                         '--state_path=%s' % self.conf.state_path,
+                         '--metadata_port=%d' % dhcp.METADATA_PORT]
+            proxy_cmd.extend(config.get_log_args(
+                cfg.CONF, 'neutron-ns-metadata-proxy-%s.log' % network.id))
+            return proxy_cmd
+
+        pm = external_process.ProcessManager(
+            self.conf,
+            network.id,
+            self.root_helper,
+            network.namespace)
+        pm.enable(callback)
+
+
+metadata proxyを起動する。もし、引数で指定されたnetworkにrouterが接続されていない場合、neutron_lookup_paramに"--network_id"を指定して、metadata proxyを起動する。routerが関連づいている場合は、neutron_lookup_paramに--router_idを指定して、起動する。なお、networkにrouterが複数関連づいている場合は、ログにwarningを吐き出す（謎）。
+
+なお、ProcessManagerの詳細については、processmanager.rstを参照。
+TODO: processmanager.rstの編集。
+
+def disable_isolated_metadata_proxy(self, network):
+---------------------------------------------------------
+
+metadata proxy の削除を行う関数。::
+
+    def disable_isolated_metadata_proxy(self, network):
+        pm = external_process.ProcessManager(
+            self.conf,
+            network.id,
+            self.root_helper,
+            network.namespace)
+        pm.disable()
+
+class DhcpPluginApi(proxy.RpcProxy):
+========================================  
