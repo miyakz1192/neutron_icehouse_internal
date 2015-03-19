@@ -570,3 +570,30 @@ metadata proxy の削除を行う関数。::
 
 class DhcpPluginApi(proxy.RpcProxy):
 ========================================  
+
+dhcp-agentがneutron-serverのrpcを呼び出す際に使うクラス。
+neutron-serverのRPC呼び出しが実装されている。
+RPCのバージョンは1.1。
+なお、以下のneutron-serverのRPCを呼び出す。 
+
+なお、DhcpPluginApiの初期化は、DhcpAgentの__init__の以下で次のように行われている。::
+
+        ctx = context.get_admin_context_without_session()
+        self.plugin_rpc = DhcpPluginApi(topics.PLUGIN,
+                                        ctx, self.conf.use_namespaces)
+
+DhcpPluginApiはneutron-serverの以下のRPCを呼び出すメソッドが実装されている。
+
+1. get_active_networks_info
+2. get_network_info
+3. get_dhcp_port
+4. create_dhcp_port
+5. update_dhcp_port
+6. release_dhcp_port
+7. release_port_fixed_ip(dhcp_agent.pyでは未使用)
+
+
+
+
+
+
