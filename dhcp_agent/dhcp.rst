@@ -401,8 +401,6 @@ cmdにdnsmasqを起動するためのオプションを記載している。
 なお、kiloの場合は、--dhcp-authoritativeが指定されている。
 https://review.openstack.org/#/c/152080/
 
-::
-
 以下のコードでは、--dhcp-rangeの計算を行っている。::
 
         possible_leases = 0
@@ -430,15 +428,14 @@ https://review.openstack.org/#/c/152080/
                         self.conf.dhcp_lease_duration))
             possible_leases += cidr.size
 
-networkに関連づくsubnetごとに--dhcp-rangeオプションを生成する。rangeの実態はsubnetのnetworkアドレスになっている。以下のコードでは、--dhcp-lease-maxの計算を行っている。
-::
+networkに関連づくsubnetごとに--dhcp-rangeオプションを生成する。rangeの実態はsubnetのnetworkアドレスになっている。以下のコードでは、--dhcp-lease-maxの計算を行っている。::
 
         # Cap the limit because creating lots of subnets can inflate
         # this possible lease cap.
         cmd.append('--dhcp-lease-max=%d' %
                    min(possible_leases, self.conf.dnsmasq_lease_max))
 
-possible_leasesとself.conf.dnsmasq_lease_maxを比較し、少ない方を選択している。
+possible_leasesとself.conf.dnsmasq_lease_maxを比較し、少ない方を選択している。::
 
         cmd.append('--conf-file=%s' % self.conf.dnsmasq_config_file)
         if self.conf.dnsmasq_dns_servers:
@@ -454,11 +451,330 @@ possible_leasesとself.conf.dnsmasq_lease_maxを比較し、少ない方を選�
         ip_wrapper.netns.execute(cmd, addl_env=env)
 
 
+configファイルの指定があれば、それを指定。domainも同様の処理。そして、ip_wrapperにより、dhcp-serverのnetwork namespaceにdnsmasqが起動する。
 
 
+def _release_lease(self, mac_address, ip):
+-------------------------------------------------
+
+leaseを解放するメソッド。実態はdnsmasq付属のdhcp_releaseを呼び出している::
+
+    def _release_lease(self, mac_address, ip):
+        """Release a DHCP lease."""
+        cmd = ['dhcp_release', self.interface_name, ip, mac_address]
+        ip_wrapper = ip_lib.IPWrapper(self.root_helper,
+                                      self.network.namespace)
+        ip_wrapper.netns.execute(cmd)
+
+疑問としては、network nodeで起動しているdnsmasqは複数あり、かつ、ファイルシステムとプロセス空間は共有している(network空間は、network namespaceで区切られている）。この時、dhcp_releaseがdnsmasqを特定するのに十分な情報がdhcp_releaseコマンドに与えられているとは思えない。せいぜい、ineterface_name位だろうか。
+
+TODO:dhcp_releaseコマンドの調査。
+
+def reload_allocations(self):
+-------------------------------------
+
+dnsmasqサーバの状態を更新する。dnsmasqのコンフィグファイルを再作成し、signalを送って再読込させる::
+
+    def reload_allocations(self):
+        """Rebuild the dnsmasq config and signal the dnsmasq to reload."""
+
+        # If all subnets turn off dhcp, kill the process.
+        if not self._enable_dhcp():
+            self.disable()
+            LOG.debug(_('Killing dhcpmasq for network since all subnets have '
+                        'turned off DHCP: %s'), self.network.id)
+            return
+
+subnetでdhcpがすべて無効であれば、単にdnsmasqを停止する::
+
+        self._release_unused_leases()
+        self._output_hosts_file()
+        self._output_addn_hosts_file()
+        self._output_opts_file()
+
+leaseを解放したり、hostsファイルやaddnファイル、optionファイルを再生成する::
+
+        if self.active:
+            cmd = ['kill', '-HUP', self.pid]
+            utils.execute(cmd, self.root_helper)
+        else:
+            LOG.debug(_('Pid %d is stale, relaunching dnsmasq'), self.pid)
+
+dnsmasqが起動していれば、HUPを送る。そうでなければ、dnsmasqを起動するという旨のデバッグメッセージを出力する。::
+
+        LOG.debug(_('Reloading allocations for network: %s'), self.network.id)
+        self.device_manager.update(self.network, self.interface_name)
+
+最後にdevice_managerのupdateを実行する。
 
 
+def _iter_hosts(self):
+---------------------------
 
+hostsをイテレーションする。::
+
+    def _iter_hosts(self):
+        """Iterate over hosts.
+
+        For each host on the network we yield a tuple containing:
+        (
+            port,  # a DictModel instance representing the port.
+            alloc,  # a DictModel instance of the allocated ip and subnet.
+            host_name,  # Host name.
+            name,  # Host name and domain name in the format 'hostname.domain'.
+        )
+        """
+        for port in self.network.ports:
+            for alloc in port.fixed_ips:
+                hostname = 'host-%s' % alloc.ip_address.replace(
+                    '.', '-').replace(':', '-')
+                fqdn = '%s.%s' % (hostname, self.conf.dhcp_domain)
+                yield (port, alloc, hostname, fqdn)
+
+def _output_hosts_file(self):
+-------------------------------------
+
+hostsファイルを生成する::
+
+    def _output_hosts_file(self):
+        """Writes a dnsmasq compatible dhcp hosts file.
+
+        The generated file is sent to the --dhcp-hostsfile option of dnsmasq,
+        and lists the hosts on the network which should receive a dhcp lease.
+        Each line in this file is in the form::
+
+            'mac_address,FQDN,ip_address'
+
+        IMPORTANT NOTE: a dnsmasq instance does not resolve hosts defined in
+        this file if it did not give a lease to a host listed in it (e.g.:
+        multiple dnsmasq instances on the same network if this network is on
+        multiple network nodes). This file is only defining hosts which
+        should receive a dhcp lease, the hosts resolution in itself is
+        defined by the `_output_addn_hosts_file` method.
+        """
+        buf = six.StringIO()
+        filename = self.get_conf_file_name('host')
+
+        LOG.debug(_('Building host file: %s'), filename)
+        for (port, alloc, hostname, name) in self._iter_hosts():
+            set_tag = ''
+            # (dzyu) Check if it is legal ipv6 address, if so, need wrap
+            # it with '[]' to let dnsmasq to distinguish MAC address from
+            # IPv6 address.
+            ip_address = alloc.ip_address
+            if netaddr.valid_ipv6(ip_address):
+                ip_address = '[%s]' % ip_address
+
+            LOG.debug(_('Adding %(mac)s : %(name)s : %(ip)s'),
+                      {"mac": port.mac_address, "name": name,
+                       "ip": ip_address})
+
+            if getattr(port, 'extra_dhcp_opts', False):
+                if self.version >= self.MINIMUM_VERSION:
+                    set_tag = 'set:'
+
+                buf.write('%s,%s,%s,%s%s\n' %
+                          (port.mac_address, name, ip_address,
+                           set_tag, port.id))
+            else:
+                buf.write('%s,%s,%s\n' %
+                          (port.mac_address, name, ip_address))
+
+        utils.replace_file(filename, buf.getvalue())
+        LOG.debug(_('Done building host file %s'), filename)
+        return filename
+
+hostsファイルを書き出す。extra_dhcp_optsがFalseの場合、フォーマットは'mac_address,FQDN,ip_address'で書き出す。
+手持ちのdevstackでの出力例。::
+
+  fa:16:3e:39:a6:e8,host-192-168-1-3.openstacklocal,192.168.1.3
+  fa:16:3e:4a:05:27,host-192-168-1-4.openstacklocal,192.168.1.4
+
+この環境のdnsmasqのバージョンは、2.68::
+
+  miyakz@icehouse01:/opt/stack/neutron$ dnsmasq --version
+  Dnsmasq version 2.68  Copyright (c) 2000-2013 Simon Kelley
+  Compile time options: IPv6 GNU-getopt DBus i18n IDN DHCP DHCPv6 no-Lua TFTP conntrack ipset auth
+
+  This software comes with ABSOLUTELY NO WARRANTY.
+  Dnsmasq is free software, and you are welcome to redistribute it
+  under the terms of the GNU General Public License, version 2 or 3.
+  miyakz@icehouse01:/opt/stack/neutron$ 
+
+MINIMUM_VERSIONは以下。::
+
+    MINIMUM_VERSION = 2.59
+
+
+def _read_hosts_file_leases(self, filename):
+-------------------------------------------------
+
+hostsファイルを読み込む。setにして返す。::
+
+    def _read_hosts_file_leases(self, filename):
+        leases = set()
+        if os.path.exists(filename):
+            with open(filename) as f:
+                for l in f.readlines():
+                    host = l.strip().split(',')
+                    leases.add((host[2], host[0]))
+        return leases
+
+setに入れるタプルは、(ip_address,mac_address) .
+
+def _release_unused_leases(self):
+----------------------------------------
+
+hostsファイル内のlease対象外のエントリに対して、dhcp_releaseを実行する。::
+
+    def _release_unused_leases(self):
+        filename = self.get_conf_file_name('host')
+        old_leases = self._read_hosts_file_leases(filename)
+
+        new_leases = set()
+        for port in self.network.ports:
+            for alloc in port.fixed_ips:
+                new_leases.add((alloc.ip_address, port.mac_address))
+
+        for ip, mac in old_leases - new_leases:
+            self._release_lease(mac, ip)
+
+def _output_addn_hosts_file(self):
+-----------------------------------------
+
+addnファイルを作成する。処理としては簡単で、neutron-serverからもらってきたportのリストから、(ip_address,fqdn,hostname)を生成する。::
+
+    def _output_addn_hosts_file(self):
+        """Writes a dnsmasq compatible additional hosts file.
+
+        The generated file is sent to the --addn-hosts option of dnsmasq,
+        and lists the hosts on the network which should be resolved even if
+        the dnsmaq instance did not give a lease to the host (see the
+        `_output_hosts_file` method).
+        Each line in this file is in the same form as a standard /etc/hosts
+        file.
+        """
+        buf = six.StringIO()
+        for (port, alloc, hostname, fqdn) in self._iter_hosts():
+            # It is compulsory to write the `fqdn` before the `hostname` in
+            # order to obtain it in PTR responses.
+            buf.write('%s\t%s %s\n' % (alloc.ip_address, fqdn, hostname))
+        addn_hosts = self.get_conf_file_name('addn_hosts')
+        utils.replace_file(addn_hosts, buf.getvalue())
+        return addn_hosts
+
+
+def _output_opts_file(self):
+----------------------------------
+
+optsファイルを生成するメソッド::
+
+    def _output_opts_file(self):
+        """Write a dnsmasq compatible options file."""
+
+        if self.conf.enable_isolated_metadata:
+            subnet_to_interface_ip = self._make_subnet_interface_ip_map()
+
+self._make_subnet_interface_ip_mapを呼び出し、dhcp-serverがnetwork namespaceで使用する、情報を得る({subnet_id => ip_address}のdict)::
+    
+        options = []
+
+        isolated_subnets = self.get_isolated_subnets(self.network)
+        dhcp_ips = collections.defaultdict(list)
+        subnet_idx_map = {}
+        for i, subnet in enumerate(self.network.subnets):
+            if not subnet.enable_dhcp:
+                continue
+            if subnet.dns_nameservers:
+                options.append(
+                    self._format_option(i, 'dns-server',
+                                        ','.join(subnet.dns_nameservers)))
+            else:
+                # use the dnsmasq ip as nameservers only if there is no
+                # dns-server submitted by the server
+                subnet_idx_map[subnet.id] = i
+
+subnetにdns_nameserversが設定されている場合は、dns-serverオプションを設定する。dns_nameserversが設定されていない場合は、dnsmasq自体をdnsserverとして利用するようにする::
+
+            gateway = subnet.gateway_ip
+            host_routes = []
+            for hr in subnet.host_routes:
+                if hr.destination == "0.0.0.0/0":
+                    if not gateway:
+                        gateway = hr.nexthop
+                else:
+                    host_routes.append("%s,%s" % (hr.destination, hr.nexthop))
+
+
+subnetにgatewayが設定されている場合は、gatewayをセット。subnetにhost_routesが設定されている場合、かつ、それがdefaultである場合は、gateway変数はNoneの場合は、gateway変数をセット（知らなかった）。それ以外は、host_routeをhost_routesに設定する::
+
+            # Add host routes for isolated network segments
+
+            if (isolated_subnets[subnet.id] and
+                    self.conf.enable_isolated_metadata and
+                    subnet.ip_version == 4):
+                subnet_dhcp_ip = subnet_to_interface_ip[subnet.id]
+                host_routes.append(
+                    '%s/32,%s' % (METADATA_DEFAULT_IP, subnet_dhcp_ip)
+                )
+
+サブネットにルータがついてない(=non-isolated_subnets)、かつ、metadataが有効、かつ、ipv4の場合、metadataのマジックIPのルートをdhcp-serverにする。(これもしらなかった)::
+
+            if host_routes:
+                if gateway and subnet.ip_version == 4:
+                    host_routes.append("%s,%s" % ("0.0.0.0/0", gateway))
+                options.append(
+                    self._format_option(i, 'classless-static-route',
+                                        ','.join(host_routes)))
+                options.append(
+                    self._format_option(i, WIN2k3_STATIC_DNS,
+                                        ','.join(host_routes)))
+
+host_routesが存在する場合は、かつ、gatewayが設定されている場合は、host_routesにデフォルトgwを設定する。その後、オプションを作成する(subnetにgatewayが設定されていなく、ユーザが指定したhost_routesに0.0.0.0/0が存在する場合、デフォルトGWの設定が二重に行われそうな気がする)。::
+
+            if subnet.ip_version == 4:
+                if gateway:
+                    options.append(self._format_option(i, 'router', gateway))
+                else:
+                    options.append(self._format_option(i, 'router'))
+
+default gwのオプションを生成する様子::
+
+
+        for port in self.network.ports:
+            if getattr(port, 'extra_dhcp_opts', False):
+                options.extend(
+                    self._format_option(port.id, opt.opt_name, opt.opt_value)
+                    for opt in port.extra_dhcp_opts)
+
+portにextra_dhcp_optsが存在する場合はそれを書き出す。
+TODO:どのようなextra_dhcp_optsを設定できるのか？::
+
+            # provides all dnsmasq ip as dns-server if there is more than
+            # one dnsmasq for a subnet and there is no dns-server submitted
+            # by the server
+            if port.device_owner == constants.DEVICE_OWNER_DHCP:
+                for ip in port.fixed_ips:
+                    i = subnet_idx_map.get(ip.subnet_id)
+                    if i is None:
+                        continue
+                    dhcp_ips[i].append(ip.ip_address)
+
+subnetにdns_nameserversが指定されてない場合は、subnet_idx_mapの結果がtrueになるので、dhcp_ips[i].append(ip.ip_address)が実行される::
+
+        for i, ips in dhcp_ips.items():
+            if len(ips) > 1:
+                options.append(self._format_option(i,
+                                                   'dns-server',
+                                                   ','.join(ips)))
+
+networkに複数dhcp-serverが存在するのみに限り、dhcp-serverがdns-serverであるように、オプションが設定される。::
+
+        name = self.get_conf_file_name('opts')
+        utils.replace_file(name, '\n'.join(options))
+        return name
+
+最後にファイルを置き換える。
 
 
 class NetModel
