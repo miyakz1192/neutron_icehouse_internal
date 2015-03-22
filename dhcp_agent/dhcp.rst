@@ -376,16 +376,26 @@ cmdにdnsmasqを起動するためのオプションを記載している。
 それぞれの意味は以下の通り。
 
 1.'dnsmasq', : dnsmasqの実行コマンド名
+
 2.'--no-hosts', : /etc/hostsを読み込まない
+
 3.'--no-resolv',: /etc/resolvconfを読み込まずに、コマンドラインで与えられた情報または、コンフィグファイルの情報を利用する
+
 4.'--strict-order', : upstream serverに順番どおりにDNS queryを投げていく。
 5.'--bind-interfaces',: dnsmasqが使うineterfaceを指定。interfaceは--interfaceオプションで指定。
+
 6.'--interface,: --bind-interfacesで指定するインタフェース
+
 7.'--except-interface: bindしないinterfaceを指定
+
 8.'--pid-file : dnsmasqのpidを記録するファイルを指定
+
 9.'--dhcp-hostsfile:dhcp hostsファイルを指定,レコードは<mac address>,<host-name>,<ip address>
+
 10.'--addn-hosts: 追加のホスト情報が記載されたファイルを指定
+
 11.'--dhcp-optsfile: DHCPオプションが記載されているファイルを指定。あるneutronのdhcp-serverだと"tag:tag0,option:router,192.168.1.1"のような内容が記載されている。
+
 12.'--leasefile-ro':lease database fileを生成しない。
 
 なお、kiloの場合は、--dhcp-authoritativeが指定されている。
