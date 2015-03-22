@@ -293,6 +293,7 @@ class Dnsmasq(DhcpLocalProcess):
 ==================================
 
 Dnsmasqドライバの実装。MINIMUM_VERSION = 2.59以上でないと、警告が出る::
+
     @classmethod
     def check_version(cls):
         ver = 0
