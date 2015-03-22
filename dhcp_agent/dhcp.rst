@@ -403,6 +403,8 @@ https://review.openstack.org/#/c/152080/
 
 ::
 
+以下のコードでは、--dhcp-rangeの計算を行っている。::
+
         possible_leases = 0
         for i, subnet in enumerate(self.network.subnets):
             # if a subnet is specified to have dhcp disabled
@@ -428,10 +430,15 @@ https://review.openstack.org/#/c/152080/
                         self.conf.dhcp_lease_duration))
             possible_leases += cidr.size
 
+networkに関連づくsubnetごとに--dhcp-rangeオプションを生成する。rangeの実態はsubnetのnetworkアドレスになっている。以下のコードでは、--dhcp-lease-maxの計算を行っている。
+::
+
         # Cap the limit because creating lots of subnets can inflate
         # this possible lease cap.
         cmd.append('--dhcp-lease-max=%d' %
                    min(possible_leases, self.conf.dnsmasq_lease_max))
+
+possible_leasesとself.conf.dnsmasq_lease_maxを比較し、少ない方を選択している。
 
         cmd.append('--conf-file=%s' % self.conf.dnsmasq_config_file)
         if self.conf.dnsmasq_dns_servers:
