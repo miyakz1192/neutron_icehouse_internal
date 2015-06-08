@@ -332,6 +332,15 @@ dhcp-serverが存在しているネットワークを列挙する。
             if uuidutils.is_uuid_like(c)
         ]
 
+
+existing_dhcp_networksでは、conf.dhcp_confs($state_path/dhcp)をlsして、uuidの名前のついたディレクトリの一覧を文字列で取得する。devstackでは/opt/stack/data/neutron/dhcp/に以下のようなディレクトリが転がっている。::
+
+  miyakz@icehouse01:~/neutron_icehouse_internal$ ls -l /opt/stack/data/neutron/dhcp/
+  合計 8
+  drwxr-xr-x 2 miyakz miyakz 4096  3月 18 14:39 b202bde4-aab5-431b-89f0-d881a73a3ec9
+  drwxr-xr-x 2 miyakz miyakz 4096  3月 18 14:39 d7f7f51c-1cc1-48a5-b2fb-c85629e29882
+  miyakz@icehouse01:~/neutron_icehouse_internal$ 
+  
 このメソッドでは、実際にdnsmasqが起動しているかどうかまでは判断していない。
 
 def check_version(cls):
@@ -718,7 +727,7 @@ subnetにgatewayが設定されている場合は、gatewayをセット。subnet
                     '%s/32,%s' % (METADATA_DEFAULT_IP, subnet_dhcp_ip)
                 )
 
-サブネットにルータがついてない(=non-isolated_subnets)、かつ、metadataが有効、かつ、ipv4の場合、metadataのマジックIPのルートをdhcp-serverにする。(これもしらなかった)::
+サブネットにサブネットのゲートウェイIPを持つルータがついてない(=isolated_subnets)、かつ、metadataが有効、かつ、ipv4の場合、metadataのマジックIPのルートをdhcp-serverにする。(これもしらなかった)::
 
             if host_routes:
                 if gateway and subnet.ip_version == 4:
@@ -738,7 +747,7 @@ host_routesが存在する場合は、かつ、gatewayが設定されている�
                 else:
                     options.append(self._format_option(i, 'router'))
 
-default gwのオプションを生成する様子::
+default gwのオプションを生成する様子(subnetのgatewayをdefault gwとして設定)::
 
 
         for port in self.network.ports:
@@ -777,6 +786,40 @@ networkに複数dhcp-serverが存在するのみに限り、dhcp-serverがdns-se
 最後にファイルを置き換える。
 
 
+def _make_subnet_interface_ip_map(self):
+----------------------------------------------
+
+Dnsmasqクラスが知っているnetworkのサブネットの中で、実際に、network namespaceで使われているサブネットを返す。subnet_idとcidrのdictを返す。
+
+
+def _format_option(self, tag, option, *args):
+-------------------------------------------------
+
+オプションをフォーマットする。
+
+
+def get_isolated_subnets(cls, network):
+------------------------------------------
+
+subnet_idを入れると、それが、isolated networkかどうかを返すdictを作るメソッド。isolatedとは、サブネットのゲートウェイIPを持つルータがサブネットに接続している場合は、isolatedではない。それ以外の条件ではisolatedである。
+
+
+def should_enable_metadata(cls, conf, network):
+--------------------------------------------------
+
+networkにmetadata proxyを作るべきかを判断する。作るべき場合はTrue。条件は以下の通り。
+
+1. enable_metadata_networkがTrueかつ、enable_isolated_metadataがTrueかつ、networkのサブネットの中で１つでも169.254.169.254/16に含まれるものが存在した場合はTrue
+2. use_namespacesがFalseまたは、enable_isolated_metadataがFalseの場合は、False
+3. networkのsubnetのうち1つがisolated_subnetsの場合、True
+
+
+def lease_update(cls):
+------------------------
+
+未使用なので割愛。leaseの更新の時に、どこかのリレー先に要求をフォワードするものと思われる。
+
+
 class NetModel
 ==================
 
@@ -794,31 +837,11 @@ Networkを表現するモデルらしい。::
       def namespace(self):
           return self._ns_name
   
-class Dnsmasq(DhcpLocalProcess):
-=======================================
 
-dhcp-agentのデフォルトのdriver class::
 
-  class Dnsmasq(DhcpLocalProcess):
-  (snip)
-  
-      @classmethod
-      def existing_dhcp_networks(cls, conf, root_helper):
-          """Return a list of existing networks ids that we have configs for."""
-  
-          confs_dir = os.path.abspath(os.path.normpath(conf.dhcp_confs))
-  
-          return [
-              c for c in os.listdir(confs_dir)
-              if uuidutils.is_uuid_like(c)
-          ]
-  
 
-existing_dhcp_networksでは、conf.dhcp_confs($state_path/dhcp)をlsして、uuidの名前のついたディレクトリの一覧を文字列で取得する。devstackでは/opt/stack/data/neutron/dhcp/に以下のようなディレクトリが転がっている。::
 
-  miyakz@icehouse01:~/neutron_icehouse_internal$ ls -l /opt/stack/data/neutron/dhcp/
-  合計 8
-  drwxr-xr-x 2 miyakz miyakz 4096  3月 18 14:39 b202bde4-aab5-431b-89f0-d881a73a3ec9
-  drwxr-xr-x 2 miyakz miyakz 4096  3月 18 14:39 d7f7f51c-1cc1-48a5-b2fb-c85629e29882
-  miyakz@icehouse01:~/neutron_icehouse_internal$ 
-  
+
+
+
+
