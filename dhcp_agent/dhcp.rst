@@ -838,10 +838,76 @@ Networkを表現するモデルらしい。::
           return self._ns_name
   
 
+class DeviceManager(object):
+=================================
+
+デバイスマネージャ。dhcp agnetの本丸みたいなクラス。
 
 
+def __init__(self, conf, root_helper, plugin):
+---------------------------------------------------
+
+初期化メソッド。interface_driverをimportし、interface_driverが
+設定されていなかったり、importに失敗したらSystemExistする。
+
+def get_interface_name(self, network, port):
+-------------------------------------------------
+
+DHCP処理で使用するinterface(device)を返す。
+実際には、interface_driverのget_device_nameを呼び出して返す。
+
+def get_device_id(self, network):
+-----------------------------------
+
+このnetworkでの、このホストでのユニークなDHCPデバイスIDを返す。
+中身はreturn commonutils.get_dhcp_agent_device_id(network.id, self.conf.host)しているのみ
 
 
+def _set_default_route(self, network, device_name):
+-------------------------------------------------------
 
+DHCP namespaceのdefault GWを設定する。　
+network namespaceのdefault gwをみて、networkのsubnetのgwとどれか
+１つでも違ったら、network namespaceにsubnetのgwを追加する。
+（なお、subnetのipバージョンがv4でない、または、enable_dhcpがFalseまたは、そもそもgateway_ipが設定されていないsubnetは対象外)
+
+もし、namespaceにgatewayが存在するが、subnetのそれと全く一緒あるいは、対象外の場合は、単にnetwork namespaceからgatewayをdeleteする。
+
+BUG?: subnetのgatewayと全く一緒だった場合は、削除してしまうがいいのか？
+      subnetが複数こnetworkに関連づいており、かつ、default gwが複数存在する場合はちゃんと動作するんだろうか
+
+
+def setup_dhcp_port(self, network):
+---------------------------------------
+
+dhcp_portの作成を行う。すでにdhcp_portが存在しており、かつ、新規に追加されたsubnetに関連づくportの情報(fixed_ip)が存在しない場合は、neutron-server側のupdate_dhcp_portを呼び出す。
+
+dhcp_portが存在しないかつ、networkに関連づくportでdevice_idがDEVICE_ID_RESERVED_DHCP_PORTのものが存在している場合は、update_dhcp_portする(portのdevice_idがget_device_id(network)で所得したものに変更される。
+
+上記以外のケースの場合は、neutron-serverへdhcp_portを作る。
+
+
+def setup(self, network, reuse_existing=False):
+-------------------------------------------------
+
+ネットワークのDHCPのdeviceを作成、初期化する。
+
+deviceがすでに存在する場合は、それを利用する(reuse_existingがTrueの場合。icehouseではTrue)。
+deviceが存在しない場合は、作成を行う。まず、driverのplugを呼び出してdeviceを接続する。dhcp_portに設定されているipアドレスをdeviceに割りつける。さらに、enable_isolated_metadataがTrueかつ、use_namespacesがTrueの場合は、さらにMETADATA_DEFAULT_CIDRを割り付ける。
+
+また、（ほとんど使用されないルートだが)、networkにnamespaceが存在しない場合は、dhcpのinterfaceをrouting tableの一番上位に来るように設定する。
+
+use_namespacesがTrueの場合は、_set_default_routeでdefault routeを設定する。
+
+def update(self, network, device_name):
+-----------------------------------------
+
+use_namespacesがTrueの場合は、_set_default_routeを呼び出して、default routeを設定する。
+
+
+def destroy(self, network, device_name):
+-------------------------------------------
+
+driverのunplugを呼び出してdeviceを削除し、dhcp_portを削除する。
 
 
