@@ -892,6 +892,8 @@ def setup(self, network, reuse_existing=False):
 
 ネットワークのDHCPのdeviceを作成、初期化する。
 
+まず、network_idを元に、neutron-serverに対して、dhcp_portの作成をおこなう。次に、network namespaceに作成するdeviceを作成したportを元に行う。
+
 deviceがすでに存在する場合は、それを利用する(reuse_existingがTrueの場合。icehouseではTrue)。
 deviceが存在しない場合は、作成を行う。まず、driverのplugを呼び出してdeviceを接続する。dhcp_portに設定されているipアドレスをdeviceに割りつける。さらに、enable_isolated_metadataがTrueかつ、use_namespacesがTrueの場合は、さらにMETADATA_DEFAULT_CIDRを割り付ける。
 
