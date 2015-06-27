@@ -89,8 +89,7 @@ class WorkerService(wsgi.WorkerService):
 def start(self):
 ------------------
 
-serviceの起動を行っている？
-
+service.ProcessLauncherから呼び出されるために、wsgi.WorkerServiceを継承して、startを実装している。中身は、applicationの起動を_service.pools.spawnで起動しているだけ。
 
 
 class UnixDomainWSGIServer(wsgi.Server):
@@ -100,13 +99,31 @@ class UnixDomainWSGIServer(wsgi.Server):
 def start(self, application, file_socket, workers, backlog):
 -----------------------------------------------------------------
 
-サーバを起動している。詳細はちょっとわからん。
+サーバを起動している。詳細はちょっとわからんが大体以下のような感じ。
+
+1. eventlet.listenでsocketを開いて待つ
+2. workers < 1の場合、MetadataProxyHandlerをスレッドに割り当てる。この場合は、スレッドは１つ(=MetadataProxyHandler)
+3. workers >= 1の場合、service.ProcessLauncherを使う。WorkerServiceを作って(実態はapplication=MetadataProxyHandler)、self._launcher.launch_service(self._server, workers=workers)で起動しているだけ。
+
+ここのソースコードで、applicationはMetadataProxyHandlerのインスタンス。
 
 
 def _run(self, application, socket):
 ----------------------------------------
 
-wsgi serverを起動している。詳細はちょっとわからん。
+wsgi serverを起動している。ソース見たほうが早いかも::
+
+
+    def _run(self, application, socket):
+        """Start a WSGI service in a new green thread."""
+        logger = logging.getLogger('eventlet.wsgi.server')
+        eventlet.wsgi.server(socket,
+                             application,
+                             custom_pool=self.pool,
+                             protocol=UnixDomainHttpProtocol,
+                             log=logging.WritableLogger(logger))
+
+_runは、self.pool.spawnから呼び出される。applicationはMetadataProxyHandlerである。
 
 
 class UnixDomainMetadataProxy(object):
@@ -150,16 +167,4 @@ def main():
 ============
 
 いろいろと設定を読み込んだあとに、UnixDomainMetadataProxyのrunを実行する。
-
-
-
-
-
-
-
-
-
-
-
-
 
