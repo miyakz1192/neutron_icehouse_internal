@@ -6,9 +6,13 @@ meteringの解析
 ============
 
 
-MeteringPlugin(MeteringDbMixinをmixin)
-
-
+class MeteringPlugin(MeteringDbMixinをmixin)@neutron-server
+  ↓ uses
+class MeteringAgentNotifyAPI@neutron-server
+  ↓ messaging
+AMQP
+  ↓ messaging
+MeteringAgent
 
 
 
@@ -33,13 +37,18 @@ meteringlabels, meteringlabelrulesのテーブル作成用マイグレーショ�
 neutron-server側のプラグインの実装。中心となるクラスは以下。
 "class MeteringPlugin(metering_db.MeteringDbMixin):"
 
-./services/metering/agents
+./api/rpc/agentnotifiers/metering_rpc_agent_api.py(MeteringAgentNotifyAPI)
+MeteringAgentへのRPCメソッド群。neutron-serverが実行する。
+MeteringPluginが使っている。
+★しかかり中
+
+
+
 ./services/metering/agents/metering_agent.py
 ./services/metering/drivers/abstract_driver.py
 ./services/metering/drivers/noop/noop_driver.py
 ./services/metering/drivers/iptables/__init__.py
 ./services/metering/drivers/iptables/iptables_driver.py
-./api/rpc/agentnotifiers/metering_rpc_agent_api.py
 ./extensions/metering.py
 
 
