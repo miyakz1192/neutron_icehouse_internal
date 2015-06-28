@@ -40,9 +40,6 @@ neutron-server側のプラグインの実装。中心となるクラスは以下
 ./api/rpc/agentnotifiers/metering_rpc_agent_api.py(MeteringAgentNotifyAPI)
 MeteringAgentへのRPCメソッド群。neutron-serverが実行する。
 MeteringPluginが使っている。
-★しかかり中
-
-
 
 ./services/metering/agents/metering_agent.py
 ./services/metering/drivers/abstract_driver.py
