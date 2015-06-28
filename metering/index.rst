@@ -7,13 +7,13 @@ meteringの解析
 
 
 class MeteringPlugin(MeteringDbMixinをmixin)@neutron-server
-  ↓ uses
-class MeteringAgentNotifyAPI@neutron-server
-  ↓ messaging
-AMQP
-  ↓ messaging
-MeteringAgent
-
+  ↓ uses                                           ↑  
+class MeteringAgentNotifyAPI@neutron-server        ↑  messaging
+  ↓ messaging                                      ↑
+AMQP                                              AMQP
+  ↓ messaging                                      ↑  messaging
+MeteringAgent -------------------------------> MeteringPluginRpc
+                        uses
 
 
 
