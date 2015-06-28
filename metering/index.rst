@@ -2,9 +2,8 @@
 meteringの解析
 ===========================================================
 
-クラスの関係
-============
-
+クラスの関係(一部、クラスでないコンポーネントレベルのものも含む)
+==================================================================
 
 class MeteringPlugin(MeteringDbMixinをmixin)@neutron-server
   ↓ uses                                           ↑  
@@ -12,10 +11,10 @@ class MeteringAgentNotifyAPI@neutron-server        ↑  messaging
   ↓ messaging                                      ↑
 AMQP                                              AMQP
   ↓ messaging                                      ↑  messaging
-MeteringAgent -------------------------------> MeteringPluginRpc
-                        uses
-
-
+class MeteringAgent -----------------------> class MeteringPluginRpc
+  ↓                       uses
+  ↓ uses
+class Driver
 
 
 
