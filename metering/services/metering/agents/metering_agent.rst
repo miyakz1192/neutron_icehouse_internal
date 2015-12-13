@@ -52,9 +52,9 @@ MeteringAgentの実体となるクラス
 +-------------------------+----------------------------------+
 |self.label_tenant_id     |label_idがkey,tenant_idがvalのdict|
 +-------------------------+----------------------------------+
-|self.routers             |router情報?初期値{}               |
+|self.routers             |本agentが測定するrouter.初期値{}  |
 +-------------------------+----------------------------------+
-|self.metering_infos      |測定情報？初期値{}                |
+|self.metering_infos      |測定情報.初期値{}                 |
 +-------------------------+----------------------------------+
                              
 def __init__(self, host, conf=None):
@@ -101,6 +101,49 @@ def _purge_metering_info(self):
         for label_id, info in self.metering_info.items():
             if info['last_update'] > ts + report_interval:
                 del self.metering_info[label_id]
+
+
+def _add_metering_info(self, label_id, pkts, bytes):
+--------------------------------------------------------
+
+pkts,bytesでlabel_idの測定情報を更新する。
+
+
+def _add_metering_infos(self):
+----------------------------------
+
+本metering agentが測定対象とするrouterのリスト(self.routes)を列挙して、self.label_tenant_idを構築する。また、self._get_traffic_counters(self.context, self.routers.values()) により、ドライバから測定データ(bytes,pkgs)情報を取得し、self._add_metering_infoでlabel_idについて、pkts,bytesを更新する。
+
+def _metering_loop(self):
+----------------------------
+
+測定のループ。 self.conf.measure_intervalごとにループし、self._add_metering_infos()を実行し、ドライバにアクセスして測定情報を得る。また、self.conf.report_intervalを超過した場合、self._metering_notification()により、測定結果の通知を行う。
+        
+def _invoke_driver(self, context, meterings, func_name):
+------------------------------------------------------------
+
+ドライバをfunc_nameで呼び出す。meterings引数にはrouter_idおよび、routers(ルータ情報のリスト。個々の情報には、label_idとlabel_ruleの情報を含む)
+
+このメソッドは、@utils.synchronized('metering-agent')で排他されている。
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
