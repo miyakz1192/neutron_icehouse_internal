@@ -302,8 +302,8 @@ load averageが4未満になった。この時のport-createの最大処理時�
 実験中はneutron-serverのload averageは4近くだったことから、単に高負荷であったため
 だと考える。
 
-70多重
--------
+70多重(1回目)
+---------------
 
 今度は負荷テストプログラム側の多重度を70にしてみる。
 
@@ -649,6 +649,337 @@ eventletの切り替えが走る ②
 遅延が発生した場合には、keystoneのvalidationのところで、eventlet
 切り替えが発生して遅延したのかもしれない。
 
+70多重(2回目)
+----------------
+
+データとしては以下(10sec遅延)。::
+
+  2015-12-15 00:44:19.979 17347 INFO neutron.wsgi [req-4cb9a2d9-9a90-4edd-8018-4bde335601b3 None] WSGI_REQ_START: 192.168.122.1 - - [15/Dec/2015 00:44:19] "POST /v2.0/ports.json HTTP/1.1" cd584e7d-6d00-434e-9e8b-41de8094bc2e
+  2015-12-15 00:44:20.131 17347 INFO neutron.plugins.ml2.plugin [req-cc39df5b-598c-4882-b3e5-a38f00977525 None] [DEBUG1] cd584e7d-6d00-434e-9e8b-41de8094bc2e
+  2015-12-15 00:44:20.132 17347 INFO neutron.plugins.ml2.plugin [req-cc39df5b-598c-4882-b3e5-a38f00977525 None] [DEBUG2] cd584e7d-6d00-434e-9e8b-41de8094bc2e
+  2015-12-15 00:44:20.236 17347 INFO neutron.plugins.ml2.plugin [req-cc39df5b-598c-4882-b3e5-a38f00977525 None] [DEBUG3] cd584e7d-6d00-434e-9e8b-41de8094bc2e
+  2015-12-15 00:44:20.298 17347 INFO neutron.plugins.ml2.plugin [req-cc39df5b-598c-4882-b3e5-a38f00977525 None] [DEBUG4] cd584e7d-6d00-434e-9e8b-41de8094bc2e
+  2015-12-15 00:44:20.299 17347 INFO neutron.plugins.ml2.plugin [req-cc39df5b-598c-4882-b3e5-a38f00977525 None] [DEBUG5] cd584e7d-6d00-434e-9e8b-41de8094bc2e
+  2015-12-15 00:44:20.411 17347 INFO neutron.plugins.ml2.plugin [req-cc39df5b-598c-4882-b3e5-a38f00977525 None] [DEBUG6] cd584e7d-6d00-434e-9e8b-41de8094bc2e
+  2015-12-15 00:44:20.416 17347 INFO neutron.plugins.ml2.plugin [req-cc39df5b-598c-4882-b3e5-a38f00977525 None] [DEBUG7] cd584e7d-6d00-434e-9e8b-41de8094bc2e
+  2015-12-15 00:44:20.438 17347 INFO neutron.plugins.ml2.plugin [req-cc39df5b-598c-4882-b3e5-a38f00977525 None] [DEBUG8] cd584e7d-6d00-434e-9e8b-41de8094bc2e
+  2015-12-15 00:44:20.454 17347 INFO neutron.plugins.ml2.plugin [req-cc39df5b-598c-4882-b3e5-a38f00977525 None] [DEBUG9] cd584e7d-6d00-434e-9e8b-41de8094bc2e
+  2015-12-15 00:44:20.454 17347 INFO neutron.plugins.ml2.plugin [req-cc39df5b-598c-4882-b3e5-a38f00977525 None] [DEBUG10] cd584e7d-6d00-434e-9e8b-41de8094bc2e
+  2015-12-15 00:44:20.455 17347 INFO neutron.plugins.ml2.plugin [req-cc39df5b-598c-4882-b3e5-a38f00977525 None] [DEBUG11] cd584e7d-6d00-434e-9e8b-41de8094bc2e
+  2015-12-15 00:44:20.455 17347 INFO neutron.plugins.ml2.plugin [req-cc39df5b-598c-4882-b3e5-a38f00977525 None] [DEBUG12] cd584e7d-6d00-434e-9e8b-41de8094bc2e
+  2015-12-15 00:44:20.897 17347 INFO neutron.plugins.ml2.plugin [req-cc39df5b-598c-4882-b3e5-a38f00977525 None] [DEBUG13] cd584e7d-6d00-434e-9e8b-41de8094bc2e
+  2015-12-15 00:44:20.898 17347 INFO neutron.plugins.ml2.plugin [req-cc39df5b-598c-4882-b3e5-a38f00977525 None] [DEBUG14] cd584e7d-6d00-434e-9e8b-41de8094bc2e
+  2015-12-15 00:44:30.008 17347 INFO neutron.plugins.ml2.plugin [req-cc39df5b-598c-4882-b3e5-a38f00977525 None] [DEBUG15] cd584e7d-6d00-434e-9e8b-41de8094bc2e
+  2015-12-15 00:44:30.770 17347 INFO neutron.wsgi [req-cc39df5b-598c-4882-b3e5-a38f00977525 None] WSGI_REQ_END 192.168.122.1 - - [15/Dec/2015 00:44:30] "POST /v2.0/ports.json HTTP/1.1" 201 753 10.791015 cd584e7d-6d00-434e-9e8b-41de8094bc2e
+
+DEBUG14とDEBUG15の間に通信が発生する。::
+
+  673         LOG.info(_("[DEBUG14] %(uuid)s")%{'uuid': uuid_stamp})                  
+  674         self.notify_security_groups_member_updated(context, result)
+  675         LOG.info(_("[DEBUG15] %(uuid)s")%{'uuid': uuid_stamp})       
+
+eventlet切り替えが発生するため、妥当といえば、妥当
+
+70多重(3回目)
+----------------
+
+データとしては、以下(10sec遅延)::
+
+  2015-12-15 00:44:20.022 17347 INFO neutron.wsgi [req-bb5cc18d-878b-4ead-b913-f3f2aae31272 None] WSGI_REQ_START: 192.168.122.1 - - [15/Dec/2015 00:44:20] "POST /v2.0/ports.json HTTP/1.1" 279e35e3-f2e6-4a76-8a28-a026f7f56524
+  2015-12-15 00:44:20.911 17347 INFO neutron.plugins.ml2.plugin [req-cc39df5b-598c-4882-b3e5-a38f00977525 None] [DEBUG1] 279e35e3-f2e6-4a76-8a28-a026f7f56524
+  2015-12-15 00:44:20.913 17347 INFO neutron.plugins.ml2.plugin [req-cc39df5b-598c-4882-b3e5-a38f00977525 None] [DEBUG2] 279e35e3-f2e6-4a76-8a28-a026f7f56524
+  2015-12-15 00:44:20.935 17347 INFO neutron.plugins.ml2.plugin [req-cc39df5b-598c-4882-b3e5-a38f00977525 None] [DEBUG3] 279e35e3-f2e6-4a76-8a28-a026f7f56524
+  2015-12-15 00:44:20.967 17347 INFO neutron.plugins.ml2.plugin [req-cc39df5b-598c-4882-b3e5-a38f00977525 None] [DEBUG4] 279e35e3-f2e6-4a76-8a28-a026f7f56524
+  2015-12-15 00:44:20.968 17347 INFO neutron.plugins.ml2.plugin [req-cc39df5b-598c-4882-b3e5-a38f00977525 None] [DEBUG5] 279e35e3-f2e6-4a76-8a28-a026f7f56524
+  2015-12-15 00:44:21.232 17347 INFO neutron.plugins.ml2.plugin [req-cc39df5b-598c-4882-b3e5-a38f00977525 None] [DEBUG6] 279e35e3-f2e6-4a76-8a28-a026f7f56524
+  2015-12-15 00:44:21.300 17347 INFO neutron.plugins.ml2.plugin [req-cc39df5b-598c-4882-b3e5-a38f00977525 None] [DEBUG7] 279e35e3-f2e6-4a76-8a28-a026f7f56524
+  2015-12-15 00:44:21.342 17347 INFO neutron.plugins.ml2.plugin [req-cc39df5b-598c-4882-b3e5-a38f00977525 None] [DEBUG8] 279e35e3-f2e6-4a76-8a28-a026f7f56524
+  2015-12-15 00:44:21.584 17347 INFO neutron.plugins.ml2.plugin [req-cc39df5b-598c-4882-b3e5-a38f00977525 None] [DEBUG9] 279e35e3-f2e6-4a76-8a28-a026f7f56524
+  2015-12-15 00:44:21.585 17347 INFO neutron.plugins.ml2.plugin [req-cc39df5b-598c-4882-b3e5-a38f00977525 None] [DEBUG10] 279e35e3-f2e6-4a76-8a28-a026f7f56524
+  2015-12-15 00:44:21.590 17347 INFO neutron.plugins.ml2.plugin [req-cc39df5b-598c-4882-b3e5-a38f00977525 None] [DEBUG11] 279e35e3-f2e6-4a76-8a28-a026f7f56524
+  2015-12-15 00:44:21.591 17347 INFO neutron.plugins.ml2.plugin [req-cc39df5b-598c-4882-b3e5-a38f00977525 None] [DEBUG12] 279e35e3-f2e6-4a76-8a28-a026f7f56524
+  2015-12-15 00:44:29.998 17347 INFO neutron.plugins.ml2.plugin [req-cc39df5b-598c-4882-b3e5-a38f00977525 None] [DEBUG13] 279e35e3-f2e6-4a76-8a28-a026f7f56524
+  2015-12-15 00:44:29.998 17347 INFO neutron.plugins.ml2.plugin [req-cc39df5b-598c-4882-b3e5-a38f00977525 None] [DEBUG14] 279e35e3-f2e6-4a76-8a28-a026f7f56524
+  2015-12-15 00:44:30.643 17347 INFO neutron.plugins.ml2.plugin [req-cc39df5b-598c-4882-b3e5-a38f00977525 None] [DEBUG15] 279e35e3-f2e6-4a76-8a28-a026f7f56524
+  2015-12-15 00:44:30.768 17347 INFO neutron.wsgi [req-cc39df5b-598c-4882-b3e5-a38f00977525 None] WSGI_REQ_END 192.168.122.1 - - [15/Dec/2015 00:44:30] "POST /v2.0/ports.json HTTP/1.1" 201 753 10.746070 279e35e3-f2e6-4a76-8a28-a026f7f56524
+
+
+DEBUG12とDEBUG13の間には何もない。。。::
+
+  662             LOG.info(_("[DEBUG12] %(uuid)s")%{'uuid': uuid_stamp})              
+  663             self.mechanism_manager.create_port_precommit(mech_context)          
+  664                                                                                 
+  665         try:                                                                    
+  666             self.mechanism_manager.create_port_postcommit(mech_context)         
+  667             LOG.info(_("[DEBUG13] %(uuid)s")%{'uuid': uuid_stamp})  
+    
+単にCPUが割当たらなかっただけ？そうすると他の回も単にそうだったんじゃないかと
+思ってくる。CPU高負荷かどうかを見分ける方法は？(TODO)
+
+70多重(4回目)
+---------------
+
+3回目と同様,DEBUG12とDEBUG13の間で遅延(9sec)発生。
+
+70多重(5回目)
+-----------------
+
+データとしては以下(7sec)。まんべんなく遅延している。微妙な路線だ::
+
+  2015-12-15 00:44:46.321 17347 INFO neutron.wsgi [req-7a571011-4848-485c-aba5-b54711ecebca None] WSGI_REQ_START: 192.168.122.1 - - [15/Dec/2015 00:44:46] "POST /v2.0/ports.json HTTP/1.1" 29fa38c0-8901-403b-b796-07fd3be1c734
+
+  最初のところで遅延が発生している(約2sec)。
+
+  2015-12-15 00:44:48.875 17347 INFO neutron.plugins.ml2.plugin [req-9e8bf2e5-ce7c-46d8-85da-da83839faa0e None] [DEBUG1] 29fa38c0-8901-403b-b796-07fd3be1c734
+  2015-12-15 00:44:48.875 17347 INFO neutron.plugins.ml2.plugin [req-9e8bf2e5-ce7c-46d8-85da-da83839faa0e None] [DEBUG2] 29fa38c0-8901-403b-b796-07fd3be1c734
+  2015-12-15 00:44:48.896 17347 INFO neutron.plugins.ml2.plugin [req-9e8bf2e5-ce7c-46d8-85da-da83839faa0e None] [DEBUG3] 29fa38c0-8901-403b-b796-07fd3be1c734
+  2015-12-15 00:44:48.904 17347 INFO neutron.plugins.ml2.plugin [req-9e8bf2e5-ce7c-46d8-85da-da83839faa0e None] [DEBUG4] 29fa38c0-8901-403b-b796-07fd3be1c734
+  2015-12-15 00:44:48.905 17347 INFO neutron.plugins.ml2.plugin [req-9e8bf2e5-ce7c-46d8-85da-da83839faa0e None] [DEBUG5] 29fa38c0-8901-403b-b796-07fd3be1c734
+  2015-12-15 00:44:49.057 17347 INFO neutron.plugins.ml2.plugin [req-9e8bf2e5-ce7c-46d8-85da-da83839faa0e None] [DEBUG6] 29fa38c0-8901-403b-b796-07fd3be1c734
+  2015-12-15 00:44:49.064 17347 INFO neutron.plugins.ml2.plugin [req-9e8bf2e5-ce7c-46d8-85da-da83839faa0e None] [DEBUG7] 29fa38c0-8901-403b-b796-07fd3be1c734
+  2015-12-15 00:44:49.088 17347 INFO neutron.plugins.ml2.plugin [req-9e8bf2e5-ce7c-46d8-85da-da83839faa0e None] [DEBUG8] 29fa38c0-8901-403b-b796-07fd3be1c734
+  2015-12-15 00:44:49.097 17347 INFO neutron.plugins.ml2.plugin [req-9e8bf2e5-ce7c-46d8-85da-da83839faa0e None] [DEBUG9] 29fa38c0-8901-403b-b796-07fd3be1c734
+  2015-12-15 00:44:49.098 17347 INFO neutron.plugins.ml2.plugin [req-9e8bf2e5-ce7c-46d8-85da-da83839faa0e None] [DEBUG10] 29fa38c0-8901-403b-b796-07fd3be1c734
+  2015-12-15 00:44:49.098 17347 INFO neutron.plugins.ml2.plugin [req-9e8bf2e5-ce7c-46d8-85da-da83839faa0e None] [DEBUG11] 29fa38c0-8901-403b-b796-07fd3be1c734
+  2015-12-15 00:44:49.099 17347 INFO neutron.plugins.ml2.plugin [req-9e8bf2e5-ce7c-46d8-85da-da83839faa0e None] [DEBUG12] 29fa38c0-8901-403b-b796-07fd3be1c734
+
+  ここで少し飛んでいる(約1sec)。この間には何も処理は無いはず・・・
+
+  2015-12-15 00:44:50.971 17347 INFO neutron.plugins.ml2.plugin [req-9e8bf2e5-ce7c-46d8-85da-da83839faa0e None] [DEBUG13] 29fa38c0-8901-403b-b796-07fd3be1c734
+  2015-12-15 00:44:50.972 17347 INFO neutron.plugins.ml2.plugin [req-9e8bf2e5-ce7c-46d8-85da-da83839faa0e None] [DEBUG14] 29fa38c0-8901-403b-b796-07fd3be1c734
+
+  この間に少し飛んでいる(約2sec)。self.notify_security_groups_member_updatedが存在するので遅延は発生する。
+
+  2015-12-15 00:44:52.939 17347 INFO neutron.plugins.ml2.plugin [req-9e8bf2e5-ce7c-46d8-85da-da83839faa0e None] [DEBUG15] 29fa38c0-8901-403b-b796-07fd3be1c734
+
+  若干(約0.6sec)飛んでいる。DHCP agentへの通知処理はある。
+
+  2015-12-15 00:44:53.578 17347 INFO neutron.wsgi [req-7bb09cf6-3232-4535-a4dc-396596a312ba None] WSGI_REQ_END 192.168.122.1 - - [15/Dec/2015 00:44:53] "POST /v2.0/ports.json HTTP/1.1" 201 753 7.257756 29fa38c0-8901-403b-b796-07fd3be1c734
+  
+
+70多重(6回目)
+-----------------
+
+傾向としては1回目と同じ::
+
+  2015-12-15 00:44:46.180 17347 INFO neutron.wsgi [req-f330c73b-95fb-4aba-9105-549374e4f908 None] WSGI_REQ_START: 192.168.122.1 - - [15/Dec/2015 00:44:46] "POST /v2.0/ports.json HTTP/1.1" 6662df0a-f609-4697-9147-7cff921a285a
+  2015-12-15 00:44:46.997 17347 INFO neutron.plugins.ml2.plugin [req-d4212807-25e5-4130-97f4-8f8f86fbd0b8 None] [DEBUG1] 6662df0a-f609-4697-9147-7cff921a285a
+  2015-12-15 00:44:46.997 17347 INFO neutron.plugins.ml2.plugin [req-d4212807-25e5-4130-97f4-8f8f86fbd0b8 None] [DEBUG2] 6662df0a-f609-4697-9147-7cff921a285a
+  2015-12-15 00:44:47.003 17347 INFO neutron.plugins.ml2.plugin [req-d4212807-25e5-4130-97f4-8f8f86fbd0b8 None] [DEBUG3] 6662df0a-f609-4697-9147-7cff921a285a
+  2015-12-15 00:44:47.011 17347 INFO neutron.plugins.ml2.plugin [req-d4212807-25e5-4130-97f4-8f8f86fbd0b8 None] [DEBUG4] 6662df0a-f609-4697-9147-7cff921a285a
+  2015-12-15 00:44:47.011 17347 INFO neutron.plugins.ml2.plugin [req-d4212807-25e5-4130-97f4-8f8f86fbd0b8 None] [DEBUG5] 6662df0a-f609-4697-9147-7cff921a285a
+  2015-12-15 00:44:47.038 17347 INFO neutron.plugins.ml2.plugin [req-d4212807-25e5-4130-97f4-8f8f86fbd0b8 None] [DEBUG6] 6662df0a-f609-4697-9147-7cff921a285a
+  2015-12-15 00:44:47.040 17347 INFO neutron.plugins.ml2.plugin [req-d4212807-25e5-4130-97f4-8f8f86fbd0b8 None] [DEBUG7] 6662df0a-f609-4697-9147-7cff921a285a
+  2015-12-15 00:44:47.057 17347 INFO neutron.plugins.ml2.plugin [req-d4212807-25e5-4130-97f4-8f8f86fbd0b8 None] [DEBUG8] 6662df0a-f609-4697-9147-7cff921a285a
+  2015-12-15 00:44:47.061 17347 INFO neutron.plugins.ml2.plugin [req-d4212807-25e5-4130-97f4-8f8f86fbd0b8 None] [DEBUG9] 6662df0a-f609-4697-9147-7cff921a285a
+  2015-12-15 00:44:47.062 17347 INFO neutron.plugins.ml2.plugin [req-d4212807-25e5-4130-97f4-8f8f86fbd0b8 None] [DEBUG10] 6662df0a-f609-4697-9147-7cff921a285a
+  2015-12-15 00:44:47.062 17347 INFO neutron.plugins.ml2.plugin [req-d4212807-25e5-4130-97f4-8f8f86fbd0b8 None] [DEBUG11] 6662df0a-f609-4697-9147-7cff921a285a
+  2015-12-15 00:44:47.063 17347 INFO neutron.plugins.ml2.plugin [req-d4212807-25e5-4130-97f4-8f8f86fbd0b8 None] [DEBUG12] 6662df0a-f609-4697-9147-7cff921a285a
+  2015-12-15 00:44:48.246 17347 INFO neutron.plugins.ml2.plugin [req-d4212807-25e5-4130-97f4-8f8f86fbd0b8 None] [DEBUG13] 6662df0a-f609-4697-9147-7cff921a285a
+  2015-12-15 00:44:48.247 17347 INFO neutron.plugins.ml2.plugin [req-d4212807-25e5-4130-97f4-8f8f86fbd0b8 None] [DEBUG14] 6662df0a-f609-4697-9147-7cff921a285a
+  2015-12-15 00:44:48.332 17347 INFO neutron.plugins.ml2.plugin [req-6c943d4c-f4c6-4fbf-baa9-747f82be22a6 None] [DEBUG15] 6662df0a-f609-4697-9147-7cff921a285a
+
+   この間で5sec遅延。DHCP agentへのAMQP通信で遅延していると考える。
+
+  2015-12-15 00:44:53.398 17347 INFO neutron.wsgi [req-bb48c36f-c71b-4ab5-8609-e4f5270b99fb None] WSGI_REQ_END 192.168.122.1 - - [15/Dec/2015 00:44:53] "POST /v2.0/ports.json HTTP/1.1" 201 753 7.215790 6662df0a-f609-4697-9147-7cff921a285a
+
+70多重(7回目)
+-----------------
+
+5回目と同じ、最初のところで遅延が発生している。::
+
+  2015-12-15 00:44:48.336 17347 INFO neutron.wsgi [req-6c943d4c-f4c6-4fbf-baa9-747f82be22a6 None] WSGI_REQ_START: 192.168.122.1 - - [15/Dec/2015 00:44:48] "POST /v2.0/ports.json HTTP/1.1" cf5d7cbd-9475-4063-a05d-03a44c530c65
+
+  一体ここになにがあるのか(5sec遅延)！？
+
+  2015-12-15 00:44:53.023 17347 INFO neutron.plugins.ml2.plugin [req-bb48c36f-c71b-4ab5-8609-e4f5270b99fb None] [DEBUG1] cf5d7cbd-9475-4063-a05d-03a44c530c65
+  2015-12-15 00:44:53.023 17347 INFO neutron.plugins.ml2.plugin [req-bb48c36f-c71b-4ab5-8609-e4f5270b99fb None] [DEBUG2] cf5d7cbd-9475-4063-a05d-03a44c530c65
+  2015-12-15 00:44:53.032 17347 INFO neutron.plugins.ml2.plugin [req-bb48c36f-c71b-4ab5-8609-e4f5270b99fb None] [DEBUG3] cf5d7cbd-9475-4063-a05d-03a44c530c65
+  2015-12-15 00:44:53.045 17347 INFO neutron.plugins.ml2.plugin [req-bb48c36f-c71b-4ab5-8609-e4f5270b99fb None] [DEBUG4] cf5d7cbd-9475-4063-a05d-03a44c530c65
+  2015-12-15 00:44:53.046 17347 INFO neutron.plugins.ml2.plugin [req-bb48c36f-c71b-4ab5-8609-e4f5270b99fb None] [DEBUG5] cf5d7cbd-9475-4063-a05d-03a44c530c65
+  2015-12-15 00:44:53.083 17347 INFO neutron.plugins.ml2.plugin [req-bb48c36f-c71b-4ab5-8609-e4f5270b99fb None] [DEBUG6] cf5d7cbd-9475-4063-a05d-03a44c530c65
+  2015-12-15 00:44:53.086 17347 INFO neutron.plugins.ml2.plugin [req-bb48c36f-c71b-4ab5-8609-e4f5270b99fb None] [DEBUG7] cf5d7cbd-9475-4063-a05d-03a44c530c65
+  2015-12-15 00:44:53.100 17347 INFO neutron.plugins.ml2.plugin [req-bb48c36f-c71b-4ab5-8609-e4f5270b99fb None] [DEBUG8] cf5d7cbd-9475-4063-a05d-03a44c530c65
+  2015-12-15 00:44:53.105 17347 INFO neutron.plugins.ml2.plugin [req-bb48c36f-c71b-4ab5-8609-e4f5270b99fb None] [DEBUG9] cf5d7cbd-9475-4063-a05d-03a44c530c65
+  2015-12-15 00:44:53.106 17347 INFO neutron.plugins.ml2.plugin [req-bb48c36f-c71b-4ab5-8609-e4f5270b99fb None] [DEBUG10] cf5d7cbd-9475-4063-a05d-03a44c530c65
+  2015-12-15 00:44:53.106 17347 INFO neutron.plugins.ml2.plugin [req-bb48c36f-c71b-4ab5-8609-e4f5270b99fb None] [DEBUG11] cf5d7cbd-9475-4063-a05d-03a44c530c65
+  2015-12-15 00:44:53.106 17347 INFO neutron.plugins.ml2.plugin [req-bb48c36f-c71b-4ab5-8609-e4f5270b99fb None] [DEBUG12] cf5d7cbd-9475-4063-a05d-03a44c530c65
+  2015-12-15 00:44:53.383 17347 INFO neutron.plugins.ml2.plugin [req-bb48c36f-c71b-4ab5-8609-e4f5270b99fb None] [DEBUG13] cf5d7cbd-9475-4063-a05d-03a44c530c65
+  2015-12-15 00:44:53.384 17347 INFO neutron.plugins.ml2.plugin [req-bb48c36f-c71b-4ab5-8609-e4f5270b99fb None] [DEBUG14] cf5d7cbd-9475-4063-a05d-03a44c530c65
+  2015-12-15 00:44:53.511 17347 INFO neutron.plugins.ml2.plugin [req-7bb09cf6-3232-4535-a4dc-396596a312ba None] [DEBUG15] cf5d7cbd-9475-4063-a05d-03a44c530c65
+  2015-12-15 00:44:55.137 17347 INFO neutron.wsgi [req-7bb09cf6-3232-4535-a4dc-396596a312ba None] WSGI_REQ_END 192.168.122.1 - - [15/Dec/2015 00:44:55] "POST /v2.0/ports.json HTTP/1.1" 201 753 6.801107 cf5d7cbd-9475-4063-a05d-03a44c530c65
+  
+  
+70多重(8回目)
+-----------------
+
+5回目と同じ::
+
+  2015-12-15 00:44:48.257 17347 INFO neutron.wsgi [req-d4212807-25e5-4130-97f4-8f8f86fbd0b8 None] WSGI_REQ_START: 192.168.122.1 - - [15/Dec/2015 00:44:48] "POST /v2.0/ports.json HTTP/1.1" 751659d0-ed82-4247-84be-60713bf5095c
+
+  ここに一体何が？！
+
+  2015-12-15 00:44:51.012 17347 INFO neutron.plugins.ml2.plugin [req-9e8bf2e5-ce7c-46d8-85da-da83839faa0e None] [DEBUG1] 751659d0-ed82-4247-84be-60713bf5095c
+  2015-12-15 00:44:51.013 17347 INFO neutron.plugins.ml2.plugin [req-9e8bf2e5-ce7c-46d8-85da-da83839faa0e None] [DEBUG2] 751659d0-ed82-4247-84be-60713bf5095c
+  2015-12-15 00:44:51.019 17347 INFO neutron.plugins.ml2.plugin [req-9e8bf2e5-ce7c-46d8-85da-da83839faa0e None] [DEBUG3] 751659d0-ed82-4247-84be-60713bf5095c
+  2015-12-15 00:44:51.031 17347 INFO neutron.plugins.ml2.plugin [req-9e8bf2e5-ce7c-46d8-85da-da83839faa0e None] [DEBUG4] 751659d0-ed82-4247-84be-60713bf5095c
+  2015-12-15 00:44:51.032 17347 INFO neutron.plugins.ml2.plugin [req-9e8bf2e5-ce7c-46d8-85da-da83839faa0e None] [DEBUG5] 751659d0-ed82-4247-84be-60713bf5095c
+  2015-12-15 00:44:51.290 17347 INFO neutron.plugins.ml2.plugin [req-9e8bf2e5-ce7c-46d8-85da-da83839faa0e None] [DEBUG6] 751659d0-ed82-4247-84be-60713bf5095c
+  2015-12-15 00:44:51.301 17347 INFO neutron.plugins.ml2.plugin [req-9e8bf2e5-ce7c-46d8-85da-da83839faa0e None] [DEBUG7] 751659d0-ed82-4247-84be-60713bf5095c
+  2015-12-15 00:44:51.321 17347 INFO neutron.plugins.ml2.plugin [req-9e8bf2e5-ce7c-46d8-85da-da83839faa0e None] [DEBUG8] 751659d0-ed82-4247-84be-60713bf5095c
+  2015-12-15 00:44:51.453 17347 INFO neutron.plugins.ml2.plugin [req-9e8bf2e5-ce7c-46d8-85da-da83839faa0e None] [DEBUG9] 751659d0-ed82-4247-84be-60713bf5095c
+  2015-12-15 00:44:51.454 17347 INFO neutron.plugins.ml2.plugin [req-9e8bf2e5-ce7c-46d8-85da-da83839faa0e None] [DEBUG10] 751659d0-ed82-4247-84be-60713bf5095c
+  2015-12-15 00:44:51.455 17347 INFO neutron.plugins.ml2.plugin [req-9e8bf2e5-ce7c-46d8-85da-da83839faa0e None] [DEBUG11] 751659d0-ed82-4247-84be-60713bf5095c
+  2015-12-15 00:44:51.456 17347 INFO neutron.plugins.ml2.plugin [req-9e8bf2e5-ce7c-46d8-85da-da83839faa0e None] [DEBUG12] 751659d0-ed82-4247-84be-60713bf5095c
+  2015-12-15 00:44:52.892 17347 INFO neutron.plugins.ml2.plugin [req-9e8bf2e5-ce7c-46d8-85da-da83839faa0e None] [DEBUG13] 751659d0-ed82-4247-84be-60713bf5095c
+  2015-12-15 00:44:52.893 17347 INFO neutron.plugins.ml2.plugin [req-9e8bf2e5-ce7c-46d8-85da-da83839faa0e None] [DEBUG14] 751659d0-ed82-4247-84be-60713bf5095c
+  2015-12-15 00:44:53.020 17347 INFO neutron.plugins.ml2.plugin [req-bb48c36f-c71b-4ab5-8609-e4f5270b99fb None] [DEBUG15] 751659d0-ed82-4247-84be-60713bf5095c
+  2015-12-15 00:44:54.955 17347 INFO neutron.wsgi [req-7bb09cf6-3232-4535-a4dc-396596a312ba None] WSGI_REQ_END 192.168.122.1 - - [15/Dec/2015 00:44:54] "POST /v2.0/ports.json HTTP/1.1" 201 753 6.697722 751659d0-ed82-4247-84be-60713bf5095c
+  
+
+分析
+------
+
+遅延が顕著だった70多重(7回目)を分析。
+neutron-serverのログを以下のようにgrepする。::
+
+  grep 17347 log | less
+
+遅延が発生した回(cf5d7cbd-9475-4063-a05d-03a44c530c65)を中心に見てみる。::
+
+  2015-12-15 00:44:48.336 17347 INFO neutron.wsgi [req-6c943d4c-f4c6-4fbf-baa9-747f82be22a6 None] WSGI_REQ_START: 192.168.122.1 - - [15/Dec/2015 00:44:48] "POST /v2.0/ports.json HTTP/1.1" cf5d7cbd-9475-4063-a05d-03a44c530c65
+
+  本処理のスタート(cf5d7cbd-9475-4063-a05d-03a44c530c65)のkeystoneアクセスと思われるログが直後に出ている。
+  
+  2015-12-15 00:44:48.337 17347 DEBUG keystoneclient.middleware.auth_token [-] Authenticating user token __call__ /usr/local/lib/python2.7/dist-packages/keystoneclient/middleware/auth_token.py:676
+  2015-12-15 00:44:48.337 17347 DEBUG keystoneclient.middleware.auth_token [-] Removing headers from request environment: X-Identity-Status,X-Domain-Id,X-Domain-Name,X-Project-Id,X-Project-Name,X-Project-Domain-Id,X-Project-Domain-Name,X-User-Id,X-User-Name,X-User-Domain-Id,X-User-Domain-Name,X-Roles,X-Service-Catalog,X-User,X-Tenant-Id,X-Tenant-Name,X-Tenant,X-Role _remove_auth_headers /usr/local/lib/python2.7/dist-packages/keystoneclient/middleware/auth_token.py:733
+  2015-12-15 00:44:48.338 17347 DEBUG keystoneclient.middleware.auth_token [-] Returning cached token _cache_get /usr/local/lib/python2.7/dist-packages/keystoneclient/middleware/auth_token.py:1545
+  2015-12-15 00:44:48.339 17347 DEBUG keystoneclient.middleware.auth_token [-] Storing token in cache store /usr/local/lib/python2.7/dist-packages/keystoneclient/middleware/auth_token.py:1460
+  2015-12-15 00:44:48.339 17347 DEBUG keystoneclient.middleware.auth_token [-] Received request from user: 663370576440465fa67ac0f0fd3a8ba6 with project_id : bd5924cd9269430ea2a4c6cace92eda3 and roles: _member_,admin,heat_stack_owner  _build_user_headers /usr/local/lib/python2.7/dist-packages/keystoneclient/middleware/auth_token.py:996
+  2015-12-15 00:44:48.341 17347 DEBUG routes.middleware [-] No route matched for POST /ports.json __call__ /usr/local/lib/python2.7/dist-packages/routes/middleware.py:101
+  2015-12-15 00:44:48.342 17347 DEBUG routes.middleware [-] Matched POST /ports.json __call__ /usr/local/lib/python2.7/dist-packages/routes/middleware.py:105
+  2015-12-15 00:44:48.342 17347 DEBUG routes.middleware [-] Route path: '/ports{.format}', defaults: {'action': u'create', 'controller': <wsgify at 140019570919504 wrapping <function resource at 0x7f58d8c78aa0>>} __call__ /usr/local/lib/python2.7/dist-packages/routes/middleware.py:107
+  2015-12-15 00:44:48.342 17347 DEBUG routes.middleware [-] Match dict: {'action': u'create', 'controller': <wsgify at 140019570919504 wrapping <function resource at 0x7f58d8c78aa0>>, 'format': u'json'} __call__ /usr/local/lib/python2.7/dist-packages/routes/middleware.py:108
+  2015-12-15 00:44:48.343 17347 DEBUG neutron.openstack.common.rpc.amqp [req-9e8bf2e5-ce7c-46d8-85da-da83839faa0e None] Sending port.create.start on notifications.info notify /opt/stack/neutron/neutron/openstack/common/rpc/amqp.py:623
+  2015-12-15 00:44:48.344 17347 DEBUG neutron.openstack.common.rpc.amqp [req-9e8bf2e5-ce7c-46d8-85da-da83839faa0e None] UNIQUE_ID is 0b8bc546210a41b8b804285ae440863d. _add_unique_id /opt/stack/neutron/neutron/openstack/common/rpc/amqp.py:342
+  2015-12-15 00:44:48.362 17347 DEBUG neutron.api.v2.base [req-9e8bf2e5-ce7c-46d8-85da-da83839faa0e None] Request body: {u'port': {u'network_id': u'bf285ec8-0e33-4482-b1a9-82a7526c11c2', u'name': u'port40', u'admin_state_up': True}} prepare_request_body /opt/stack/neutron/neutron/api/v2/base.py:591
+
+  その後、cf5d7cbd-9475-4063-a05d-03a44c530c65とは別のport-create処理が開始(処理② )
+
+
+  2015-12-15 00:44:48.875 17347 INFO neutron.plugins.ml2.plugin [req-9e8bf2e5-ce7c-46d8-85da-da83839faa0e None] [DEBUG1] 29fa38c0-8901-403b-b796-07fd3be1c734
+  2015-12-15 00:44:48.875 17347 INFO neutron.plugins.ml2.plugin [req-9e8bf2e5-ce7c-46d8-85da-da83839faa0e None] [DEBUG2] 29fa38c0-8901-403b-b796-07fd3be1c734
+  2015-12-15 00:44:48.896 17347 INFO neutron.plugins.ml2.plugin [req-9e8bf2e5-ce7c-46d8-85da-da83839faa0e None] [DEBUG3] 29fa38c0-8901-403b-b796-07fd3be1c734
+  2015-12-15 00:44:48.904 17347 INFO neutron.plugins.ml2.plugin [req-9e8bf2e5-ce7c-46d8-85da-da83839faa0e None] [DEBUG4] 29fa38c0-8901-403b-b796-07fd3be1c734
+  2015-12-15 00:44:48.905 17347 INFO neutron.plugins.ml2.plugin [req-9e8bf2e5-ce7c-46d8-85da-da83839faa0e None] [DEBUG5] 29fa38c0-8901-403b-b796-07fd3be1c734
+  2015-12-15 00:44:48.923 17347 DEBUG neutron.db.db_base_plugin_v2 [req-9e8bf2e5-ce7c-46d8-85da-da83839faa0e None] Generated mac for network bf285ec8-0e33-4482-b1a9-82a7526c11c2 is fa:16:3e:59:80:df _generate_mac /opt/stack/neutron/neutron/db/db_base_plugin_v2.py:321
+  2015-12-15 00:44:48.928 17347 DEBUG neutron.notifiers.nova [req-9e8bf2e5-ce7c-46d8-85da-da83839faa0e None] device_id is not set on port yet. record_port_status_changed /opt/stack/neutron/neutron/notifiers/nova.py:175
+  2015-12-15 00:44:49.057 17347 INFO neutron.plugins.ml2.plugin [req-9e8bf2e5-ce7c-46d8-85da-da83839faa0e None] [DEBUG6] 29fa38c0-8901-403b-b796-07fd3be1c734
+  2015-12-15 00:44:49.064 17347 INFO neutron.plugins.ml2.plugin [req-9e8bf2e5-ce7c-46d8-85da-da83839faa0e None] [DEBUG7] 29fa38c0-8901-403b-b796-07fd3be1c734
+  2015-12-15 00:44:49.088 17347 INFO neutron.plugins.ml2.plugin [req-9e8bf2e5-ce7c-46d8-85da-da83839faa0e None] [DEBUG8] 29fa38c0-8901-403b-b796-07fd3be1c734
+  2015-12-15 00:44:49.097 17347 INFO neutron.plugins.ml2.plugin [req-9e8bf2e5-ce7c-46d8-85da-da83839faa0e None] [DEBUG9] 29fa38c0-8901-403b-b796-07fd3be1c734
+  2015-12-15 00:44:49.098 17347 INFO neutron.plugins.ml2.plugin [req-9e8bf2e5-ce7c-46d8-85da-da83839faa0e None] [DEBUG10] 29fa38c0-8901-403b-b796-07fd3be1c734
+  2015-12-15 00:44:49.098 17347 INFO neutron.plugins.ml2.plugin [req-9e8bf2e5-ce7c-46d8-85da-da83839faa0e None] [DEBUG11] 29fa38c0-8901-403b-b796-07fd3be1c734
+  2015-12-15 00:44:49.099 17347 INFO neutron.plugins.ml2.plugin [req-9e8bf2e5-ce7c-46d8-85da-da83839faa0e None] [DEBUG12] 29fa38c0-8901-403b-b796-07fd3be1c734
+  2015-12-15 00:44:50.951 17347 DEBUG neutron.api.v2.base [req-9e8bf2e5-ce7c-46d8-85da-da83839faa0e None] Request body: {u'port': {u'network_id': u'bf285ec8-0e33-4482-b1a9-82a7526c11c2', u'name': u'port32', u'admin_state_up': True}} prepare_request_body /opt/stack/neutron/neutron/api/v2/base.py:591
+  2015-12-15 00:44:50.971 17347 INFO neutron.plugins.ml2.plugin [req-9e8bf2e5-ce7c-46d8-85da-da83839faa0e None] [DEBUG13] 29fa38c0-8901-403b-b796-07fd3be1c734
+  2015-12-15 00:44:50.972 17347 INFO neutron.plugins.ml2.plugin [req-9e8bf2e5-ce7c-46d8-85da-da83839faa0e None] [DEBUG14] 29fa38c0-8901-403b-b796-07fd3be1c734
+  2015-12-15 00:44:50.973 17347 DEBUG neutron.openstack.common.rpc.amqp [req-9e8bf2e5-ce7c-46d8-85da-da83839faa0e None] Making asynchronous fanout cast... fanout_cast /opt/stack/neutron/neutron/openstack/common/rpc/amqp.py:593
+  2015-12-15 00:44:50.973 17347 DEBUG neutron.openstack.common.rpc.amqp [req-9e8bf2e5-ce7c-46d8-85da-da83839faa0e None] UNIQUE_ID is d1410d9812fa4f99ad07f59d95a0d21f. _add_unique_id /opt/stack/neutron/neutron/openstack/common/rpc/amqp.py:342
+
+  処理 ②  のDHCP agentへの通信処理開始。ここで、eventlet切り替え。また別のport-create要求の処理が開始する(処理 ③ )。
+
+  2015-12-15 00:44:51.012 17347 INFO neutron.plugins.ml2.plugin [req-9e8bf2e5-ce7c-46d8-85da-da83839faa0e None] [DEBUG1] 751659d0-ed82-4247-84be-60713bf5095c
+  2015-12-15 00:44:51.013 17347 INFO neutron.plugins.ml2.plugin [req-9e8bf2e5-ce7c-46d8-85da-da83839faa0e None] [DEBUG2] 751659d0-ed82-4247-84be-60713bf5095c
+  2015-12-15 00:44:51.019 17347 INFO neutron.plugins.ml2.plugin [req-9e8bf2e5-ce7c-46d8-85da-da83839faa0e None] [DEBUG3] 751659d0-ed82-4247-84be-60713bf5095c
+  2015-12-15 00:44:51.031 17347 INFO neutron.plugins.ml2.plugin [req-9e8bf2e5-ce7c-46d8-85da-da83839faa0e None] [DEBUG4] 751659d0-ed82-4247-84be-60713bf5095c
+  2015-12-15 00:44:51.032 17347 INFO neutron.plugins.ml2.plugin [req-9e8bf2e5-ce7c-46d8-85da-da83839faa0e None] [DEBUG5] 751659d0-ed82-4247-84be-60713bf5095c
+  2015-12-15 00:44:51.064 17347 DEBUG neutron.db.db_base_plugin_v2 [req-9e8bf2e5-ce7c-46d8-85da-da83839faa0e None] Generated mac for network bf285ec8-0e33-4482-b1a9-82a7526c11c2 is fa:16:3e:be:a0:8c _generate_mac /opt/stack/neutron/neutron/db/db_base_plugin_v2.py:321
+  2015-12-15 00:44:51.071 17347 DEBUG neutron.notifiers.nova [req-9e8bf2e5-ce7c-46d8-85da-da83839faa0e None] device_id is not set on port yet. record_port_status_changed /opt/stack/neutron/neutron/notifiers/nova.py:175
+  2015-12-15 00:44:51.290 17347 INFO neutron.plugins.ml2.plugin [req-9e8bf2e5-ce7c-46d8-85da-da83839faa0e None] [DEBUG6] 751659d0-ed82-4247-84be-60713bf5095c
+  2015-12-15 00:44:51.301 17347 INFO neutron.plugins.ml2.plugin [req-9e8bf2e5-ce7c-46d8-85da-da83839faa0e None] [DEBUG7] 751659d0-ed82-4247-84be-60713bf5095c
+  2015-12-15 00:44:51.321 17347 INFO neutron.plugins.ml2.plugin [req-9e8bf2e5-ce7c-46d8-85da-da83839faa0e None] [DEBUG8] 751659d0-ed82-4247-84be-60713bf5095c
+  2015-12-15 00:44:51.453 17347 INFO neutron.plugins.ml2.plugin [req-9e8bf2e5-ce7c-46d8-85da-da83839faa0e None] [DEBUG9] 751659d0-ed82-4247-84be-60713bf5095c
+  2015-12-15 00:44:51.454 17347 INFO neutron.plugins.ml2.plugin [req-9e8bf2e5-ce7c-46d8-85da-da83839faa0e None] [DEBUG10] 751659d0-ed82-4247-84be-60713bf5095c
+  2015-12-15 00:44:51.455 17347 INFO neutron.plugins.ml2.plugin [req-9e8bf2e5-ce7c-46d8-85da-da83839faa0e None] [DEBUG11] 751659d0-ed82-4247-84be-60713bf5095c
+  2015-12-15 00:44:51.456 17347 INFO neutron.plugins.ml2.plugin [req-9e8bf2e5-ce7c-46d8-85da-da83839faa0e None] [DEBUG12] 751659d0-ed82-4247-84be-60713bf5095c
+  2015-12-15 00:44:52.892 17347 INFO neutron.plugins.ml2.plugin [req-9e8bf2e5-ce7c-46d8-85da-da83839faa0e None] [DEBUG13] 751659d0-ed82-4247-84be-60713bf5095c
+  2015-12-15 00:44:52.893 17347 INFO neutron.plugins.ml2.plugin [req-9e8bf2e5-ce7c-46d8-85da-da83839faa0e None] [DEBUG14] 751659d0-ed82-4247-84be-60713bf5095c
+  2015-12-15 00:44:52.895 17347 DEBUG neutron.openstack.common.rpc.amqp [req-9e8bf2e5-ce7c-46d8-85da-da83839faa0e None] Making asynchronous fanout cast... fanout_cast /opt/stack/neutron/neutron/openstack/common/rpc/amqp.py:593
+  2015-12-15 00:44:52.895 17347 DEBUG neutron.openstack.common.rpc.amqp [req-9e8bf2e5-ce7c-46d8-85da-da83839faa0e None] UNIQUE_ID is 23879ae556784a378c0b78f203942402. _add_unique_id /opt/stack/neutron/neutron/openstack/common/rpc/amqp.py:342
+
+  処理 ③  のDHCP agentの通信処理開始。eventlet切り替え。
+
+  2015-12-15 00:44:52.926 17347 DEBUG neutron.scheduler.dhcp_agent_scheduler [req-9e8bf2e5-ce7c-46d8-85da-da83839faa0e None] Network bf285ec8-0e33-4482-b1a9-82a7526c11c2 is hosted already schedule /opt/stack/neutron/neutron/scheduler/dhcp_agent_scheduler.py:72
+  2015-12-15 00:44:52.929 17347 DEBUG neutron.api.v2.base [req-9e8bf2e5-ce7c-46d8-85da-da83839faa0e None] Request body: {u'port': {u'network_id': u'bf285ec8-0e33-4482-b1a9-82a7526c11c2', u'name': u'port51', u'admin_state_up': True}} prepare_request_body /opt/stack/neutron/neutron/api/v2/base.py:591
+  2015-12-15 00:44:52.939 17347 INFO neutron.plugins.ml2.plugin [req-9e8bf2e5-ce7c-46d8-85da-da83839faa0e None] [DEBUG15] 29fa38c0-8901-403b-b796-07fd3be1c734
+
+  処理 ②  の続きの処理(DEBUG15)から再開
+
+  2015-12-15 00:44:52.940 17347 DEBUG neutron.openstack.common.rpc.amqp [req-9e8bf2e5-ce7c-46d8-85da-da83839faa0e None] Sending port.create.end on notifications.info notify /opt/stack/neutron/neutron/openstack/common/rpc/amqp.py:623
+  2015-12-15 00:44:52.940 17347 DEBUG neutron.openstack.common.rpc.amqp [req-9e8bf2e5-ce7c-46d8-85da-da83839faa0e None] UNIQUE_ID is 1e07d69ba10044f1b87983b4c7ff36d1. _add_unique_id /opt/stack/neutron/neutron/openstack/common/rpc/amqp.py:342
+  2015-12-15 00:44:52.981 17347 DEBUG neutron.openstack.common.rpc.amqp [req-9e8bf2e5-ce7c-46d8-85da-da83839faa0e None] Making asynchronous cast on dhcp_agent.icehouse01... cast /opt/stack/neutron/neutron/openstack/common/rpc/amqp.py:584
+  2015-12-15 00:44:52.981 17347 DEBUG neutron.openstack.common.rpc.amqp [req-9e8bf2e5-ce7c-46d8-85da-da83839faa0e None] UNIQUE_ID is e1f59e79b6744fea92f28a35e5b0ab46. _add_unique_id /opt/stack/neutron/neutron/openstack/common/rpc/amqp.py:342
+  2015-12-15 00:44:52.994 17347 DEBUG keystoneclient.middleware.auth_token [-] Storing token in cache store /usr/local/lib/python2.7/dist-packages/keystoneclient/middleware/auth_token.py:1460
+  2015-12-15 00:44:52.994 17347 DEBUG keystoneclient.middleware.auth_token [-] Received request from user: 663370576440465fa67ac0f0fd3a8ba6 with project_id : bd5924cd9269430ea2a4c6cace92eda3 and roles: _member_,admin,heat_stack_owner  _build_user_headers /usr/local/lib/python2.7/dist-packages/keystoneclient/middleware/auth_token.py:996
+  2015-12-15 00:44:52.995 17347 DEBUG routes.middleware [-] No route matched for GET /networks.json __call__ /usr/local/lib/python2.7/dist-packages/routes/middleware.py:101
+  2015-12-15 00:44:52.996 17347 DEBUG routes.middleware [-] Matched GET /networks.json __call__ /usr/local/lib/python2.7/dist-packages/routes/middleware.py:105
+  2015-12-15 00:44:52.999 17347 DEBUG routes.middleware [-] Route path: '/networks{.format}', defaults: {'action': u'index', 'controller': <wsgify at 140019570887120 wrapping <function resource at 0x7f58d8ce5ed8>>} __call__ /usr/local/lib/python2.7/dist-packages/routes/middleware.py:107
+  2015-12-15 00:44:52.999 17347 DEBUG routes.middleware [-] Match dict: {'action': u'index', 'controller': <wsgify at 140019570887120 wrapping <function resource at 0x7f58d8ce5ed8>>, 'format': u'json'} __call__ /usr/local/lib/python2.7/dist-packages/routes/middleware.py:108
+  2015-12-15 00:44:53.020 17347 INFO neutron.plugins.ml2.plugin [req-bb48c36f-c71b-4ab5-8609-e4f5270b99fb None] [DEBUG15] 751659d0-ed82-4247-84be-60713bf5095c
+
+  処理 ③  の続きの処理(DEBUG15)から再開
+
+  2015-12-15 00:44:53.021 17347 DEBUG neutron.openstack.common.rpc.amqp [req-bb48c36f-c71b-4ab5-8609-e4f5270b99fb None] Sending port.create.end on notifications.info notify /opt/stack/neutron/neutron/openstack/common/rpc/amqp.py:623
+  2015-12-15 00:44:53.021 17347 DEBUG neutron.openstack.common.rpc.amqp [req-bb48c36f-c71b-4ab5-8609-e4f5270b99fb None] UNIQUE_ID is 8d0708872a9b4aecb13b2394531f4ebe. _add_unique_id /opt/stack/neutron/neutron/openstack/common/rpc/amqp.py:342
+
+  おそらく、処理 ③  のport create update通知の延長で通信が発生するので、本処理が再開
+
+
+  2015-12-15 00:44:53.023 17347 INFO neutron.plugins.ml2.plugin [req-bb48c36f-c71b-4ab5-8609-e4f5270b99fb None] [DEBUG1] cf5d7cbd-9475-4063-a05d-03a44c530c65
+  2015-12-15 00:44:53.023 17347 INFO neutron.plugins.ml2.plugin [req-bb48c36f-c71b-4ab5-8609-e4f5270b99fb None] [DEBUG2] cf5d7cbd-9475-4063-a05d-03a44c530c65
+  2015-12-15 00:44:53.032 17347 INFO neutron.plugins.ml2.plugin [req-bb48c36f-c71b-4ab5-8609-e4f5270b99fb None] [DEBUG3] cf5d7cbd-9475-4063-a05d-03a44c530c65
+  2015-12-15 00:44:53.045 17347 INFO neutron.plugins.ml2.plugin [req-bb48c36f-c71b-4ab5-8609-e4f5270b99fb None] [DEBUG4] cf5d7cbd-9475-4063-a05d-03a44c530c65
+  2015-12-15 00:44:53.046 17347 INFO neutron.plugins.ml2.plugin [req-bb48c36f-c71b-4ab5-8609-e4f5270b99fb None] [DEBUG5] cf5d7cbd-9475-4063-a05d-03a44c530c65
+  2015-12-15 00:44:53.074 17347 DEBUG neutron.db.db_base_plugin_v2 [req-bb48c36f-c71b-4ab5-8609-e4f5270b99fb None] Generated mac for network bf285ec8-0e33-4482-b1a9-82a7526c11c2 is fa:16:3e:b4:00:f4 _generate_mac /opt/stack/neutron/neutron/db/db_base_plugin_v2.py:321
+  2015-12-15 00:44:53.078 17347 DEBUG neutron.notifiers.nova [req-bb48c36f-c71b-4ab5-8609-e4f5270b99fb None] device_id is not set on port yet. record_port_status_changed /opt/stack/neutron/neutron/notifiers/nova.py:175
+  2015-12-15 00:44:53.083 17347 INFO neutron.plugins.ml2.plugin [req-bb48c36f-c71b-4ab5-8609-e4f5270b99fb None] [DEBUG6] cf5d7cbd-9475-4063-a05d-03a44c530c65
+  2015-12-15 00:44:53.086 17347 INFO neutron.plugins.ml2.plugin [req-bb48c36f-c71b-4ab5-8609-e4f5270b99fb None] [DEBUG7] cf5d7cbd-9475-4063-a05d-03a44c530c65
+  2015-12-15 00:44:53.100 17347 INFO neutron.plugins.ml2.plugin [req-bb48c36f-c71b-4ab5-8609-e4f5270b99fb None] [DEBUG8] cf5d7cbd-9475-4063-a05d-03a44c530c65
+  2015-12-15 00:44:53.105 17347 INFO neutron.plugins.ml2.plugin [req-bb48c36f-c71b-4ab5-8609-e4f5270b99fb None] [DEBUG9] cf5d7cbd-9475-4063-a05d-03a44c530c65
+  2015-12-15 00:44:53.106 17347 INFO neutron.plugins.ml2.plugin [req-bb48c36f-c71b-4ab5-8609-e4f5270b99fb None] [DEBUG10] cf5d7cbd-9475-4063-a05d-03a44c530c65
+  2015-12-15 00:44:53.106 17347 INFO neutron.plugins.ml2.plugin [req-bb48c36f-c71b-4ab5-8609-e4f5270b99fb None] [DEBUG11] cf5d7cbd-9475-4063-a05d-03a44c530c65
+  2015-12-15 00:44:53.106 17347 INFO neutron.plugins.ml2.plugin [req-bb48c36f-c71b-4ab5-8609-e4f5270b99fb None] [DEBUG12] cf5d7cbd-9475-4063-a05d-03a44c530c65
+  2015-12-15 00:44:53.365 17347 DEBUG neutron.openstack.common.rpc.amqp [req-bb48c36f-c71b-4ab5-8609-e4f5270b99fb None] Making asynchronous cast on dhcp_agent.icehouse01... cast /opt/stack/neutron/neutron/openstack/common/rpc/amqp.py:584
+  2015-12-15 00:44:53.366 17347 DEBUG neutron.openstack.common.rpc.amqp [req-bb48c36f-c71b-4ab5-8609-e4f5270b99fb None] UNIQUE_ID is fe32bbe26d2f4be7a85a9901d24f10f9. _add_unique_id /opt/stack/neutron/neutron/openstack/common/rpc/amqp.py:342
+  2015-12-15 00:44:53.378 17347 INFO neutron.wsgi [req-bb48c36f-c71b-4ab5-8609-e4f5270b99fb None] WSGI_REQ_END 192.168.122.1 - - [15/Dec/2015 00:44:53] "GET /v2.0/networks.json?fields=id&id=bf285ec8-0e33-4482-b1a9-82a7526c11c2 HTTP/1.1" 200 275 6.881002 a5b6f7e9-325b-46ed-afcb-2e1aeba88625
+  2015-12-15 00:44:53.383 17347 INFO neutron.plugins.ml2.plugin [req-bb48c36f-c71b-4ab5-8609-e4f5270b99fb None] [DEBUG13] cf5d7cbd-9475-4063-a05d-03a44c530c65
+  2015-12-15 00:44:53.384 17347 INFO neutron.plugins.ml2.plugin [req-bb48c36f-c71b-4ab5-8609-e4f5270b99fb None] [DEBUG14] cf5d7cbd-9475-4063-a05d-03a44c530c65
+  2015-12-15 00:44:53.385 17347 DEBUG neutron.openstack.common.rpc.amqp [req-bb48c36f-c71b-4ab5-8609-e4f5270b99fb None] Making asynchronous fanout cast... fanout_cast /opt/stack/neutron/neutron/openstack/common/rpc/amqp.py:593
+  2015-12-15 00:44:53.385 17347 DEBUG neutron.openstack.common.rpc.amqp [req-bb48c36f-c71b-4ab5-8609-e4f5270b99fb None] UNIQUE_ID is 7b8960a635a1433e8cbc8bfe3f48ebd8. _add_unique_id /opt/stack/neutron/neutron/openstack/common/rpc/amqp.py:342
+  2015-12-15 00:44:53.390 17347 INFO neutron.wsgi [req-bb48c36f-c71b-4ab5-8609-e4f5270b99fb None] WSGI_REQ_END 192.168.122.1 - - [15/Dec/2015 00:44:53] "DELETE /v2.0/ports/3db27b85-5f36-498a-ac71-35c5ff6acd75.json HTTP/1.1" 204 173 7.081066 20d0cd87-ac39-42ed-a3d7-dd40609d8702
+  2015-12-15 00:44:53.398 17347 INFO neutron.wsgi [req-bb48c36f-c71b-4ab5-8609-e4f5270b99fb None] WSGI_REQ_END 192.168.122.1 - - [15/Dec/2015 00:44:53] "POST /v2.0/ports.json HTTP/1.1" 201 753 7.215790 6662df0a-f609-4697-9147-7cff921a285a
+  2015-12-15 00:44:53.399 17347 INFO neutron.wsgi [req-bb48c36f-c71b-4ab5-8609-e4f5270b99fb None] WSGI_REQ_START: 192.168.122.1 - - [15/Dec/2015 00:44:53] "POST /v2.0/ports.json HTTP/1.1" 2fd7fe8e-5a38-4f81-a402-9f55c2414c5d
+  2015-12-15 00:44:53.400 17347 DEBUG keystoneclient.middleware.auth_token [-] Authenticating user token __call__ /usr/local/lib/python2.7/dist-packages/keystoneclient/middleware/auth_token.py:676
+  2015-12-15 00:44:53.400 17347 DEBUG keystoneclient.middleware.auth_token [-] Removing headers from request environment: X-Identity-Status,X-Domain-Id,X-Domain-Name,X-Project-Id,X-Project-Name,X-Project-Domain-Id,X-Project-Domain-Name,X-User-Id,X-User-Name,X-User-Domain-Id,X-User-Domain-Name,X-Roles,X-Service-Catalog,X-User,X-Tenant-Id,X-Tenant-Name,X-Tenant,X-Role _remove_auth_headers /usr/local/lib/python2.7/dist-packages/keystoneclient/middleware/auth_token.py:733
+  2015-12-15 00:44:53.401 17347 DEBUG keystoneclient.middleware.auth_token [-] Returning cached token _cache_get /usr/local/lib/python2.7/dist-packages/keystoneclient/middleware/auth_token.py:1545
+  2015-12-15 00:44:53.402 17347 DEBUG keystoneclient.middleware.auth_token [-] Storing token in cache store /usr/local/lib/python2.7/dist-packages/keystoneclient/middleware/auth_token.py:1460
+  2015-12-15 00:44:53.403 17347 DEBUG keystoneclient.middleware.auth_token [-] Received request from user: 663370576440465fa67ac0f0fd3a8ba6 with project_id : bd5924cd9269430ea2a4c6cace92eda3 and roles: _member_,admin,heat_stack_owner  _build_user_headers /usr/local/lib/python2.7/dist-packages/keystoneclient/middleware/auth_token.py:996
+  2015-12-15 00:44:53.405 17347 DEBUG routes.middleware [-] No route matched for POST /ports.json __call__ /usr/local/lib/python2.7/dist-packages/routes/middleware.py:101
+  2015-12-15 00:44:53.405 17347 DEBUG routes.middleware [-] Matched POST /ports.json __call__ /usr/local/lib/python2.7/dist-packages/routes/middleware.py:105
+  2015-12-15 00:44:53.406 17347 DEBUG routes.middleware [-] Route path: '/ports{.format}', defaults: {'action': u'create', 'controller': <wsgify at 140019570919504 wrapping <function resource at 0x7f58d8c78aa0>>} __call__ /usr/local/lib/python2.7/dist-packages/routes/middleware.py:107
+  2015-12-15 00:44:53.406 17347 DEBUG routes.middleware [-] Match dict: {'action': u'create', 'controller': <wsgify at 140019570919504 wrapping <function resource at 0x7f58d8c78aa0>>, 'format': u'json'} __call__ /usr/local/lib/python2.7/dist-packages/routes/middleware.py:108
+  2015-12-15 00:44:53.407 17347 DEBUG neutron.openstack.common.rpc.amqp [req-7bb09cf6-3232-4535-a4dc-396596a312ba None] Sending port.create.start on notifications.info notify /opt/stack/neutron/neutron/openstack/common/rpc/amqp.py:623
+  2015-12-15 00:44:53.408 17347 DEBUG neutron.openstack.common.rpc.amqp [req-7bb09cf6-3232-4535-a4dc-396596a312ba None] UNIQUE_ID is 21039b2dba28407799c58f4550a422d6. _add_unique_id /opt/stack/neutron/neutron/openstack/common/rpc/amqp.py:342
+  2015-12-15 00:44:53.511 17347 INFO neutron.plugins.ml2.plugin [req-7bb09cf6-3232-4535-a4dc-396596a312ba None] [DEBUG15] cf5d7cbd-9475-4063-a05d-03a44c530c65
+
+  本処理終了。
+  解析終わり。
+
+結論：port_createの前段で処理が遅延するのは、keystoneへの通信処理によって、他のtaskletに処理が奪われるから。
+
+対策：不明。eventletを使っている限りは避けられないと言える。multiprocessersなeventletがあればよい？
+  
 参考
 =======
 
