@@ -532,7 +532,6 @@ create_portのところまでのbtを丁寧に追ってみる::
   -> return self.app(env, start_response)
 
     create_portを呼び出したあとは即時復帰::
- 
     680         try:                                                                    
     681             self._remove_auth_headers(env)                                      
     682             user_token = self._get_user_token_from_header(env)                  
@@ -649,5 +648,77 @@ eventletの切り替えが走る ②
 [memo]今回、復帰時で遅延が見られたが、create_port呼び出し時で
 遅延が発生した場合には、keystoneのvalidationのところで、eventlet
 切り替えが発生して遅延したのかもしれない。
+
+参考
+=======
+
+今回、wsgi.pyにlogstampの改造を入れている。::
+
+  miyakz@icehouse01:/usr/lib/python2.7/dist-packages/eventlet$ diff -u wsgi.py_org_20151212  wsgi.py
+  --- wsgi.py_org_20151212  2015-12-12 17:03:48.050768199 +0900
+  +++ wsgi.py 2015-12-14 11:00:20.574518000 +0900
+  @@ -5,6 +5,7 @@
+   import traceback
+   import types
+   import warnings
+  +import uuid
+   
+   from eventlet.green import urllib
+   from eventlet.green import socket
+  @@ -20,9 +21,13 @@
+   MAX_TOTAL_HEADER_SIZE = 65536
+   MINIMUM_CHUNK_SIZE = 4096
+   # %(client_port)s is also available
+  -DEFAULT_LOG_FORMAT= ('%(client_ip)s - - [%(date_time)s] "%(request_line)s"'
+  -                     ' %(status_code)s %(body_length)s %(wall_seconds).6f')
+  -
+  +DEFAULT_LOG_FORMAT= ('WSGI_REQ_END %(client_ip)s - - [%(date_time)s] "%(request_line)s"'
+  +                     ' %(status_code)s %(body_length)s %(wall_seconds).6f'
+  +                     ' %(uuid)s')
+  +
+  +DEFAULT_LOG_FORMAT_START= ('WSGI_REQ_START: %(client_ip)s - - [%(date_time)s] "%(request_line)s"'
+  +                           ' %(uuid)s'
+  +                     )
+   __all__ = ['server', 'format_date_time']
+   
+   # Weekday and month names for HTTP date/time formatting; always English!
+  @@ -381,6 +386,18 @@
+   
+           try:
+               try:
+  +                uuid_str = uuid.uuid4()
+  +#                import pdb
+  +#                pdb.set_trace()
+  +                self.environ['uuid'] = uuid_str
+  +                if self.server.log_output:
+  +                    self.server.log_message(DEFAULT_LOG_FORMAT_START % {
+  +                        'client_ip': self.get_client_ip(),
+  +                        'client_port': self.client_address[1],
+  +                        'date_time': self.log_date_time_string(),
+  +                        'request_line': self.requestline,
+  +                        'uuid':         uuid_str
+  +                    })
+                   result = self.application(self.environ, start_response)
+                   if (isinstance(result, _AlreadyHandled)
+                       or isinstance(getattr(result, '_obj', None), _AlreadyHandled)):
+  @@ -444,6 +461,7 @@
+                       'status_code': status_code[0],
+                       'body_length': length[0],
+                       'wall_seconds': finish - start,
+  +                    'uuid':         uuid_str
+                   })
+   
+       def get_client_ip(self):
+  miyakz@icehouse01:/usr/lib/python2.7/dist-packages/eventlet$ 
+
+
+
+
+
+
+
+
+
+
 
 
