@@ -317,9 +317,9 @@ load average
   
 結果。
 
-==============    =========
+==============    =========   =========
 port-create処理時間
----------------------------
+----------------------------------------
 最小              最大        平均
 ==============    =========   =========
 0.241192          3.247623    0.8479923714285711
@@ -979,6 +979,13 @@ neutron-serverのログを以下のようにgrepする。::
 結論：port_createの前段で処理が遅延するのは、keystoneへの通信処理によって、他のtaskletに処理が奪われるから。
 
 対策：不明。eventletを使っている限りは避けられないと言える。multiprocessersなeventletがあればよい？
+
+対策
+======
+
+1つのapi_workerに処理が殺到しないようにすればよい。api_workerを増やす
+
+
   
 参考
 =======
@@ -1042,7 +1049,8 @@ neutron-serverのログを以下のようにgrepする。::
        def get_client_ip(self):
   miyakz@icehouse01:/usr/lib/python2.7/dist-packages/eventlet$ 
 
-
+CPythonはGILがあるので、マルチスレッドは性能が出ない。マルチプロセスで対応。::
+  http://momijiame.tumblr.com/post/65335100849/%E3%83%9E%E3%83%AB%E3%83%81%E3%83%97%E3%83%AD%E3%82%BB%E3%82%B9%E3%81%A7-eventlet-%E3%81%AE-wsgi-%E3%82%B5%E3%83%BC%E3%83%90%E3%82%92%E5%8B%95%E3%81%8B%E3%81%99
 
 
 
