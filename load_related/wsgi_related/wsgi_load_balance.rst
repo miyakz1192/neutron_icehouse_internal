@@ -23,8 +23,8 @@ eventlet.wsgiが呼び出されることがわかった。1つのプロセスの
 そのため、大量の処理が並列して実行されている場合は、いつまで経っても
 目的の処理が実行されない場合がある。
 
-また、大量のリクエストが来たとしても、各api_workerに等しく要求が分散される
-かどうかは不明である。
+また、大量のREST APIリクエストが来たとしても、各api_workerに等しく要求が分散される
+かどうかはeventletのスケジューラを見ないとわからない。
 
 以下、内容詳細。::
 
@@ -839,6 +839,112 @@ runも単にself.timersを引っ張ってきているだけ。::
 要するにeventletのスケジューラは、非常に単純で、sleepやconnect、spawnなどが実行された
 タイミングで、それを呼び出した処理が、timersに登録される。
 そして、過去に登録された処理が、登録された順で呼び出されることがわかった。
+
+neutron-serverにREST APIリクエストが来た場合、各api_workerに等しく要求が分散されるか
+======================================================================================
+
+api workerの起動は以下の経路で行われる。まず、api_workerを起動する入り口と
+なるコードは以下::
+
+  [wsgi.py]
+  208     def start(self, application, port, host='0.0.0.0', workers=0):              
+  209         """Run a WSGI server with the given application."""                     
+  210         self._host = host                                                       
+  211         self._port = port                                                       
+  212         backlog = CONF.backlog                                                  
+  213                                                                                 
+  214         self._socket = self._get_socket(self._host,                             
+  215                                         self._port,                             
+  216                                         backlog=backlog)                        
+  217         if workers < 1:                                                         
+  218             # For the case where only one process is required.                  
+  219             self._server = self.pool.spawn(self._run, application,              
+  220                                            self._socket)                        
+  221         else:                                                                   
+  222             # Minimize the cost of checking for child exit by extending the     
+  223             # wait interval past the default of 0.01s.                          
+  224             self._launcher = ProcessLauncher(wait_interval=1.0)                 
+  225             self._server = WorkerService(self, application)                     
+  226             self._launcher.launch_service(self._server, workers=workers)     
+
+L214でsocketが作られる。マルチ api_workerの場合は、L226に行く。L225において、
+self._serverに作ったsocketが入っている。::
+
+  [openstack/common/service.py]
+  334       def launch_service(self, service, workers=1):
+  335           wrap = ServiceWrapper(service, workers)
+  336   
+  337  ->         LOG.info(_('Starting %d workers'), wrap.workers)
+  338           while self.running and len(wrap.children) < wrap.workers:
+  339               self._start_child(wrap)
+  340   
+  341       def _wait_child(self):
+  342           try:
+  (Pdb) p wrap.service._service
+  <neutron.wsgi.Server object at 0x7f7392680bd0>
+  (Pdb) p wrap.service._service._socket
+  <eventlet.greenio.GreenSocket object at 0x7f73973c4910>
+  (Pdb) 
+
+neutron.confで指定された数分、workerプロセスを起動する。_start_childの実装
+は以下。::
+
+  301     def _start_child(self, wrap):                                               
+  302         if len(wrap.forktimes) > wrap.workers:                                  
+  303             # Limit ourselves to one process a second (over the period of       
+  304             # number of workers * 1 second). This will allow workers to         
+  305             # start up quickly but ensure we don't fork off children that       
+  306             # die instantly too quickly.                                        
+  307             if time.time() - wrap.forktimes[0] < wrap.workers:                  
+  308                 LOG.info(_('Forking too fast, sleeping'))                       
+  309                 time.sleep(1)                                                   
+  310                                                                                 
+  311             wrap.forktimes.pop(0)                                               
+  312                                                                                 
+  313         wrap.forktimes.append(time.time())                                      
+  314                                                                                 
+  315         pid = os.fork()                                                         
+  316         if pid == 0:                                                            
+  317             launcher = self._child_process(wrap.service) ★  _child_processがキモ
+  318             while True:                                                         
+  319                 self._child_process_handle_signal()                             
+  320                 status, signo = self._child_wait_for_exit_or_signal(launcher)   
+  321                 if not _is_sighup_and_daemon(signo):                            
+  322                     break                                                       
+  323                 launcher.restart()                                              
+  324                                                                                 
+  325             os._exit(status)                                                    
+  326                                                                                 
+  327         LOG.info(_('Started child %d'), pid)                                    
+  328                                                                                 
+  329         wrap.children.add(pid)                                                  
+  330         self.children[pid] = wrap                                               
+  331                                                                                 
+  332         return pid   
+
+_child_processの実装は以下::
+
+  282     def _child_process(self, service):                                          
+  283         self._child_process_handle_signal()                                     
+  284                                                                                 
+  285         # Reopen the eventlet hub to make sure we don't share an epoll          
+  286         # fd with parent and/or siblings, which would be bad                    
+  287         eventlet.hubs.use_hub()                                                 
+  288                                                                                 
+  289         # Close write to ensure only parent has it open                         
+  290         os.close(self.writepipe)                                                
+  291         # Create greenthread to watch for parent to close pipe                  
+  292         eventlet.spawn_n(self._pipe_watcher)                                    
+  293                                                                                 
+  294         # Reseed random number generator                                        
+  295         random.seed()                                                           
+  296                                                                                 
+  297         launcher = Launcher()                                                   
+  298         launcher.launch_service(service)                                        
+  299         return launcher 
+
+L298でserviceが起動する。つまり、各workerはwsgi.pyのL214で作ったsocketを共有
+している。
 
 参考
 =====
