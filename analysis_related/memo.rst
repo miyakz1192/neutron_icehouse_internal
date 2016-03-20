@@ -12,14 +12,19 @@ neutron-serverの障害分析に使えるログの強化など　
 ----
 
 neutron-serverが使っているeventletにより、性能が安定しにくいことは周知の通り。
-性能劣化減少が発生した時に、容易に切り分けが可能なように、ログを強化する。
-
-シーケンス
-------------
+性能劣化現象が発生した時に、容易に切り分けが可能なように、ログを強化する。
 
 neutron-serverがREST-API のリクエストを受け取ってからそれが終了するまでにrequest-idが
 付与される。それが受付時にはまだ判明していないこと、agentに対してRPCを送るときも
 不明(?要調査)。
+
+REST API受信のシーケンス
+--------------------------
+
+大まかには以下::
+
+  eventlet.wsgi -> paste deployment -> neutron-serverのプラグイン、サービスのメソッド
+
 
 
 性能ログ強化
@@ -182,5 +187,33 @@ IDくらいか？::
   139917614131152
   (Pdb) 
 
+
+ちょっとバグっている
+=====================
+
+コンテキスト切り替えが発生すると、request_uuidが失われてしまう？::
+
+  2016-01-04 17:42:55.985 17921 INFO neutron.plugins.ml2.plugin [6ad2385d-7108-4745-b561-dc4c3d2343a1 None] [DEBUG14] 6ad2385d-7108-4745-b561-dc4c3d2343a1
+  2016-01-04 17:42:55.985 17921 DEBUG neutron.openstack.common.rpc.amqp [6ad2385d-7108-4745-b561-dc4c3d2343a1 None] Making asynchronous fanout cast... fanout_cast /opt/stack/neutron/neutron/openstack/common/rpc/amqp.py:599
+  2016-01-04 17:42:55.986 17921 DEBUG neutron.openstack.common.rpc.amqp [6ad2385d-7108-4745-b561-dc4c3d2343a1 None] UNIQUE_ID is 9d58e415beef4c5188d43fea4ca862de. _add_unique_id /opt/stack/neutron/neutron/openstack/common/rpc/amqp.py:343
+  2016-01-04 17:42:55.987 17921 DEBUG neutron.context [req-74f3214d-f879-46f2-ad4e-800bc9bae51b None] Arguments dropped when creating context: {'project_name': None, 'tenant': None} __init__ /opt/stack/neutron/neutron/context.py:96
+  2016-01-04 17:42:55.987 17921 DEBUG neutron.plugins.ml2.db [req-74f3214d-f879-46f2-ad4e-800bc9bae51b None] get_port_and_sgs() called for port_id 14ee9ef6-97b0-4ad0-b9e9-79a82647351e get_port_and_sgs /opt/stack/neutron/neutron/plugins/ml2/db.py:100
+  2016-01-04 17:42:56.008 17921 INFO neutron.plugins.ml2.plugin [-] [DEBUG15] 6ad2385d-7108-4745-b561-dc4c3d2343a1
+  2016-01-04 17:42:56.009 17921 DEBUG neutron.openstack.common.rpc.amqp [-] Sending port.create.end on notifications.info notify /opt/stack/neutron/neutron/openstack/common/rpc/amqp.py:629
+
+第２例::
+
+  2016-01-04 17:43:01.161 17921 INFO neutron.plugins.ml2.plugin [cd4cbaa5-b4e6-4c8c-b7b4-56dc8ce83f49 None] [DEBUG14] cd4cbaa5-b4e6-4c8c-b7b4-56dc8ce83f49
+  2016-01-04 17:43:01.162 17921 DEBUG neutron.openstack.common.rpc.amqp [cd4cbaa5-b4e6-4c8c-b7b4-56dc8ce83f49 None] Making asynchronous fanout cast... fanout_cast /opt/stack/neutron/neutron/openstack/common/rpc/amqp.py:599
+  2016-01-04 17:43:01.162 17921 DEBUG neutron.openstack.common.rpc.amqp [cd4cbaa5-b4e6-4c8c-b7b4-56dc8ce83f49 None] UNIQUE_ID is ad8420011f654d1485667106ed9203a4. _add_unique_id /opt/stack/neutron/neutron/openstack/common/rpc/amqp.py:343
+  2016-01-04 17:43:01.165 17921 INFO neutron.wsgi [-] WSGI_REQ_START: 192.168.122.1 - - [04/Jan/2016 17:43:01] "GET /v2.0/networks.json?fields=id&id=bf285ec8-0e33-4482-b1a9-82a7526c11c2 HTTP/1.1" 85371fad-5af8-4556-92e6-263e752281cc
   
+  2016-01-04 17:43:01.166 17921 DEBUG keystoneclient.middleware.auth_token [-] Authenticating user token __call__ /usr/local/lib/python2.7/dist-packages/keystoneclient/middleware/auth_token.py:676
+  2016-01-04 17:43:01.166 17921 DEBUG keystoneclient.middleware.auth_token [-] Removing headers from request environment: X-Identity-Status,X-Domain-Id,X-Domain-Name,X-Project-Id,X-Project-Name,X-Project-Domain-Id,X-Project-Domain-Name,X-User-Id,X-User-Name,X-User-Domain-Id,X-User-Domain-Name,X-Roles,X-Service-Catalog,X-User,X-Tenant-Id,X-Tenant-Name,X-Tenant,X-Role _remove_auth_headers /usr/local/lib/python2.7/dist-packages/keystoneclient/middleware/auth_token.py:733
+  2016-01-04 17:43:01.175 17921 DEBUG neutron.context [req-74f3214d-f879-46f2-ad4e-800bc9bae51b None] Arguments dropped when creating context: {'project_name': None, 'tenant': None} __init__ /opt/stack/neutron/neutron/context.py:96
+  2016-01-04 17:43:01.176 17921 DEBUG neutron.plugins.ml2.db [req-74f3214d-f879-46f2-ad4e-800bc9bae51b None] get_port_and_sgs() called for port_id 14ee9ef6-97b0-4ad0-b9e9-79a82647351e get_port_and_sgs /opt/stack/neutron/neutron/plugins/ml2/db.py:100
+  2016-01-04 17:43:01.223 17921 INFO neutron.plugins.ml2.plugin [-] [DEBUG15] cd4cbaa5-b4e6-4c8c-b7b4-56dc8ce83f49
+
+
+
 
